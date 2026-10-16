@@ -1,0 +1,10 @@
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Builds (upload these to itch.io, don't commit them)
+/Builds/

@@ -1,0 +1,6 @@
+{
+  "appId": "YOUR_APP_ID",
+  "appSecret": "YOUR_APP_SECRET",
+  "appVersion": "1.0.0",
+  "serverUrl": "https://api.braincloudservers.com/dispatcherv2"
+}
