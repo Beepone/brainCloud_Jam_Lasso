@@ -158,6 +158,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 **Resolution:** design and lay out for a **1080×1920** reference screen, and draw art large enough to stay sharp on a phone. The itch.io embed is **450×800** with a fullscreen button.
 **UI:** every button at least **~120 px tall at 1080 wide** (finger-sized), and nothing important in the top ~100 px or bottom ~80 px, where phone notches and home bars sit.
 **Delivery:** PNG (or `.aseprite` / `.psd` sources), committed under `project_brainCloudJam/Assets/Art/<Category>/`. Name files like `Treasure_Coin_Run.png`. Big files go through Git LFS automatically.
+**Pack-ready:** the art is also meant for a sellable asset pack (section 16). Keep layered source files, stick to one palette and pixels-per-unit, and only use your own work, or note anything else in `docs/Credits.md`.
 
 Who takes what is decided at the kickoff meeting. The two groups below are one natural split.
 
@@ -188,6 +189,8 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 ---
 
 ## 11. Audio (Joey)
+
+All audio is also meant for a sound and music pack (section 16): export seamless loops as WAV (44.1 kHz, 16-bit) plus OGG, keep the DAW projects and stems, and name files like `LootLasso_LassoThrow_01.wav`.
 
 | Sound | Status |
 |---|---|
@@ -244,6 +247,8 @@ Joey works evenings on weekdays. Artists work around their jobs. **Must** items 
 - Art style: pixel or hand-drawn, pixels per unit, and the palette? (kickoff meeting)
 - Who does what between the two artists? (kickoff meeting)
 - Is "Loot Lasso" the final title?
+- Team agreement for asset pack sales: ownership and revenue split (section 16)
+- Should audio source projects (`SFX_Project/`) live in this repo or somewhere separate?
 
 ---
 
@@ -272,3 +277,42 @@ The team wants Loot Lasso on iPhone after the jam. **None of this is jam work.**
 3. Switch online play to the brainCloud Relay on iOS, keeping lobby signals for the web.
 4. Add Game Center / Sign in with Apple.
 5. TestFlight with friends, then decide on a business model (paid, free, cosmetics) before the App Store submission.
+
+---
+
+## 16. Beyond the jam: asset packs
+
+The team also wants to sell what we make as **asset packs**: mainly the **art, sound effects and music**, and possibly some **scripts**. The game becomes the live demo: "as seen in Loot Lasso, play it free on itch.io".
+
+### Possible packs
+| Pack | Contents | Made by |
+|---|---|---|
+| Treasure & cowpoke sprites | Animated living treasure, player characters, lasso, arena tiles, props | Artists |
+| Loot Lasso UI kit | Buttons, panels, timing ring, icons, logo-free versions | Artists |
+| Treasure & loot SFX | Lasso twirl/throw/grab/snap, coin/chest/idol voices, steal, UI | Joey |
+| Music | Title, match and final-30-seconds loops, with stems for adaptive layers | Joey |
+| *(Maybe)* Spin & flick throw | The lasso input system as a standalone Unity script package with a demo scene | Joey |
+
+Where to sell: **itch.io** (asset listings, quick to publish) first, then the **Unity Asset Store** (submission review takes a while).
+
+### Rules during the jam, so everything stays sellable
+1. **Only original work in anything we plan to sell.** Free or CC0 assets are fine as placeholders or game-only extras, but we can't resell them. Keep a list in `docs/Credits.md` of anything not made by us (fonts too: check the font's license allows commercial use and redistribution).
+2. **Keep the source files:** `.psd` / `.aseprite` / `.kra` layers for art, DAW projects and stems for audio. Packs sell better with sources and layered files.
+3. **Consistent specs:** one palette, one pixels-per-unit, consistent sprite sizes and a clear naming scheme. That's needed for the game anyway, and buyers expect it.
+4. **Export audio "pack-ready" the first time:** seamless loops, WAV (44.1 kHz, 16-bit) plus OGG, and names like `LootLasso_LassoThrow_01.wav`.
+5. **Sellable scripts stay separate from brainCloud.** A throw package must not depend on the brainCloud SDK or our patch: the SDK has its own license, and buyers may not use brainCloud. That means the input system needs its own namespace and assembly, with brainCloud only in the game layer. Worth keeping in mind during the rewrite, but no extra packaging work during the jam.
+6. **Check AI-assistance rules before selling code.** Parts of the code are written with AI help, and stores (including the Unity Asset Store) have their own policies on AI-generated content. Check the current rules before listing script packs. Art and audio made by the team aren't affected.
+
+### Agree on ownership now
+With three people making things to sell, write down a short **team agreement** before the first sale (ideally this week, while it's easy):
+- who owns what (each person their own work, or shared by all three),
+- how revenue from each pack is split,
+- who can publish and under whose account,
+- what happens if someone leaves the project.
+
+### Probable order after voting ends
+1. Clean up and export the art and audio at pack quality.
+2. Make preview material: an animated GIF or video of the sprites, an audio preview playlist.
+3. Publish on itch.io with a link to the game, and link the game's page to the packs.
+4. Submit to the Unity Asset Store.
+5. Consider the script package once the game code has settled.
