@@ -27,6 +27,20 @@ public class TreasureZone : MonoBehaviour
             Random.Range(area.yMin + margin, area.yMax - margin));
     }
 
+    /// <summary>
+    /// Same as RandomPoint, but from the shared seed, so both players' games put a caught treasure
+    /// in the same spot (otherwise steal throws hit on one screen and miss on the other).
+    /// </summary>
+    public Vector2 SharedRandomPoint(int matchSeed, Treasure t)
+    {
+        const float margin = 0.5f;
+        var rng = new Prng(matchSeed * 31 + t.id * 977 + t.timesStored * 7919);
+        t.timesStored++;
+        return new Vector2(
+            rng.Range(area.xMin + margin, area.xMax - margin),
+            rng.Range(area.yMin + margin, area.yMax - margin));
+    }
+
     public void Store(Treasure t, Vector2 position)
     {
         t.state = TreasureState.InZone;

@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.bitheads.braincloud": "https://github.com/getbraincloud/braincloud-unity-package.git#6.0.0",
     "com.unity.2d.animation": "16.0.1",
     "com.unity.2d.aseprite": "6.0.0",
     "com.unity.2d.psdimporter": "15.0.1",

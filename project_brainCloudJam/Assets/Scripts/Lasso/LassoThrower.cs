@@ -10,10 +10,10 @@ public enum ThrowQuality { Perfect, Good, Sloppy }
 /// Pokemon GO-style lasso throw:
 /// - Hold the mouse and circle it around the player. Faster circles = more power = farther throw
 ///   (the range ring around the player grows as you speed up).
-/// - The accuracy cycle runs from large to small, then resets; the range ring's color shows how
-///   good a throw would be right now. Small = the lasso lands closer to where you aimed, and a stronger rope.
+/// - The timing ring around the player shrinks, then resets; its color shows how good a throw would
+///   be right now. Better timing = a stronger rope and a faster throw. The lasso always lands where you aimed.
 /// - To throw, flick the mouse outward in the direction you want, then release the button quickly.
-///   Power and accuracy are locked in at the start of the flick.
+///   Power and timing are locked in at the start of the flick.
 /// All tuning values are exposed in the Inspector, so you can adjust them during Play mode.
 /// </summary>
 public class LassoThrower : MonoBehaviour
@@ -56,23 +56,35 @@ public class LassoThrower : MonoBehaviour
     [Header("Power")]
     public float minRange = 1.5f;
     public float maxRange = 15f;
-    public float minFlightSpeed = 12f;
-    public float maxFlightSpeed = 28f;
+    public float minFlightSpeed = 6f;
+    public float maxFlightSpeed = 14f;
     [Tooltip("Radius of the loop when it lands. Everything inside is caught.")]
     public float catchRadius = 1f;
 
-    [Header("Accuracy circle")]
-    public float circleMaxRadius = 3f;
-    public float circleMinRadius = 0.25f;
-    [Tooltip("Seconds for the circle to shrink from largest to smallest before resetting.")]
+    [Header("Timing")]
+    [Tooltip("Seconds for the timing ring to shrink from largest to smallest before resetting.")]
     public float circleShrinkTime = 1.4f;
     [Tooltip("Release when the shrink is at least this far along for a Perfect (0 = largest, 1 = smallest).")]
     [Range(0f, 1f)] public float perfectFrom = 0.75f;
     [Range(0f, 1f)] public float goodFrom = 0.4f;
     [Tooltip("The timing ring around the player shrinks from this size...")]
     public float timingRingMaxRadius = 1.1f;
-    [Tooltip("...to this size, in step with the accuracy cycle.")]
+    [Tooltip("...to this size, in step with the timing cycle.")]
     public float timingRingMinRadius = 0.5f;
+
+    [Header("Audio (clips are handed over by LassoArena)")]
+    public AudioClip twirlClip;
+    public AudioClip throwClip;
+    public AudioClip grabClip;
+    [Range(0f, 1f)] public float twirlVolume = 0.8f;
+    [Range(0f, 1f)] public float sfxVolume = 1f;
+    [Tooltip("Twirl pitch when spinning slowly...")]
+    public float twirlMinPitch = 0.8f;
+    [Tooltip("...and at this many circles per second and above.")]
+    public float twirlMaxPitch = 1.4f;
+    public float twirlMaxPitchAt = 4f;
+    [Tooltip("When the lasso lands, the throw sound fades out over this many seconds.")]
+    public float throwFadeTime = 0.1f;
 
     [Header("Debug")]
     [Tooltip("Show the range ring and the landing preview after a flick. Off = play by feel.")]
@@ -94,6 +106,12 @@ public class LassoThrower : MonoBehaviour
     public float retractSpeed = 22f;
 
     [HideInInspector] public TreasureZone homeZone;
+
+    [Tooltip("Off = this is the opponent: no mouse input, throws arrive through RemoteThrow().")]
+    public bool isLocal = true;
+
+    /// <summary>Raised when the local player throws: landing point, flight speed, rope strength. The network test sends this.</summary>
+    public event Action<Vector2, float, float> Thrown;
 
     // Read by the HUD.
     public string LastThrowSummary { get; private set; } = "";
@@ -121,34 +139,46 @@ public class LassoThrower : MonoBehaviour
     readonly List<Treasure> hooked = new List<Treasure>();
     readonly List<Vector2> hookedOffsets = new List<Vector2>();
 
-    SpriteRenderer loop, rope, accuracyCircle, catchPreview, rangeRing, spinGuide, timingRing;
+    SpriteRenderer loop, rope, catchPreview, rangeRing, spinGuide, timingRing;
+
+    AudioSource twirlSource, throwSource, sfxSource;
+    bool fadingThrow;
+    float audioSpinRate; // Fast-reacting spin speed for the twirl sound (the wind-up average is too slow for audio).
 
     void Start()
     {
         var parent = transform.parent;
         loop = PlaceholderArt.CreateSprite("Lasso Loop", PlaceholderArt.Ring, new Color(0.95f, 0.85f, 0.6f), 6, parent);
         rope = PlaceholderArt.CreateSprite("Rope", PlaceholderArt.Square, new Color(0.85f, 0.7f, 0.45f), 5, parent);
-        accuracyCircle = PlaceholderArt.CreateSprite("Accuracy Circle", PlaceholderArt.Ring, Color.white, 2, parent);
         catchPreview = PlaceholderArt.CreateSprite("Catch Preview", PlaceholderArt.Ring, new Color(1f, 1f, 1f, 0.3f), 1, parent);
         rangeRing = PlaceholderArt.CreateSprite("Range Ring", PlaceholderArt.ThinRing, Color.white, 1, parent);
         timingRing = PlaceholderArt.CreateSprite("Timing Ring", PlaceholderArt.Ring, Color.white, 3, parent);
         spinGuide = PlaceholderArt.CreateSprite("Spin Guide", PlaceholderArt.Ring, new Color(1f, 1f, 1f, 0.12f), 1, parent);
         SetVisible(false);
+
+        twirlSource = gameObject.AddComponent<AudioSource>();
+        twirlSource.clip = twirlClip;
+        twirlSource.loop = true;
+        twirlSource.playOnAwake = false;
+        throwSource = gameObject.AddComponent<AudioSource>(); // Separate, so it can be faded out on landing.
+        throwSource.playOnAwake = false;
+        sfxSource = gameObject.AddComponent<AudioSource>();
+        sfxSource.playOnAwake = false;
     }
 
     void Update()
     {
         var mouse = Mouse.current;
-        if (mouse == null) return;
+        if (isLocal && mouse == null) return;
 
         Vector2 origin = transform.position;
-        Vector2 mouseWorld = Camera.main.ScreenToWorldPoint(mouse.position.ReadValue());
+        Vector2 mouseWorld = isLocal ? (Vector2)Camera.main.ScreenToWorldPoint(mouse.position.ReadValue()) : origin;
         float dt = Time.deltaTime;
 
         switch (state)
         {
             case State.Idle:
-                if (mouse.leftButton.wasPressedThisFrame) StartSpin(mouseWorld);
+                if (isLocal && LassoArena.InputEnabled && mouse.leftButton.wasPressedThisFrame) StartSpin(mouseWorld);
                 break;
 
             case State.Spinning:
@@ -177,6 +207,18 @@ public class LassoThrower : MonoBehaviour
         }
 
         if (state != State.Idle) DrawRope(origin, loopPos);
+
+        if (fadingThrow) FadeOutThrow(dt);
+    }
+
+    void FadeOutThrow(float dt)
+    {
+        throwSource.volume = Mathf.MoveTowards(throwSource.volume, 0f, sfxVolume / Mathf.Max(throwFadeTime, 0.001f) * dt);
+        if (throwSource.volume <= 0f || !throwSource.isPlaying)
+        {
+            throwSource.Stop();
+            fadingThrow = false;
+        }
     }
 
     // ---------- Spinning ----------
@@ -194,6 +236,12 @@ public class LassoThrower : MonoBehaviour
         spinStartTime = Time.time;
         windUpStart = Time.time;
         stoppedFor = 0f;
+        audioSpinRate = 0f;
+        if (twirlClip != null)
+        {
+            twirlSource.volume = 0f;
+            twirlSource.Play();
+        }
         AddHistory(mouseWorld);
         SetVisible(true);
         loop.transform.localScale = Vector3.one * 0.5f;
@@ -227,6 +275,12 @@ public class LassoThrower : MonoBehaviour
         while (spinHistory.Count > 1 && Time.time - spinHistory.Peek().time > windUpTime + flickLookback + 0.1f)
             spinHistory.Dequeue();
         spinRate = AverageSpinRate(Time.time);
+
+        // Twirl sound: pitch and volume follow how fast you're circling right now.
+        audioSpinRate = Mathf.Lerp(audioSpinRate, instantRate, 1f - Mathf.Exp(-10f * dt));
+        float circlesPerSecond = audioSpinRate / 360f;
+        twirlSource.pitch = Mathf.Lerp(twirlMinPitch, twirlMaxPitch, circlesPerSecond / twirlMaxPitchAt);
+        twirlSource.volume = twirlVolume * Mathf.Clamp01(circlesPerSecond * 2f); // Full volume from half a circle per second.
 
         // The lasso visibly spins around the player at the same rate.
         if (offset.magnitude >= minCircleRadius)
@@ -289,14 +343,12 @@ public class LassoThrower : MonoBehaviour
 
         // After a flick, during the release window, show where the throw will land.
         bool flicked = Time.time - flickTime <= releaseWindow;
-        accuracyCircle.enabled = catchPreview.enabled = flicked && showDebugPreview;
+        catchPreview.enabled = flicked && showDebugPreview;
         if (flicked)
         {
             Vector2 target = origin + flickDirection * Mathf.Lerp(minRange, maxRange, flickPower);
-            accuracyCircle.transform.position = target;
-            accuracyCircle.transform.localScale = Vector3.one * CircleRadius(flickShrink) * 2f;
-            accuracyCircle.color = QualityColor(QualityFor(flickShrink));
             catchPreview.transform.position = target;
+            catchPreview.color = QualityColor(QualityFor(flickShrink));
             catchPreview.transform.localScale = Vector3.one * catchRadius * 2f;
         }
 
@@ -327,16 +379,15 @@ public class LassoThrower : MonoBehaviour
         return degrees / windUpTime;
     }
 
-    // 0 = circle at its largest, 1 = smallest. Loops while you keep spinning.
+    // 0 = timing ring at its largest, 1 = smallest. Loops while you keep spinning.
     float ShrinkProgress() => Mathf.Repeat((Time.time - spinStartTime) / circleShrinkTime, 1f);
-
-    float CircleRadius(float shrink) => Mathf.Lerp(circleMaxRadius, circleMinRadius, shrink);
 
     ThrowQuality QualityFor(float shrink) =>
         shrink >= perfectFrom ? ThrowQuality.Perfect : shrink >= goodFrom ? ThrowQuality.Good : ThrowQuality.Sloppy;
 
     void Cancel()
     {
+        twirlSource.Stop();
         state = State.Idle;
         SetVisible(false);
         LiveSpinSummary = "";
@@ -355,24 +406,56 @@ public class LassoThrower : MonoBehaviour
         }
 
         float power = flickPower;
-        float shrink = flickShrink;
-        float radius = CircleRadius(shrink);
-        var quality = QualityFor(shrink);
+        var quality = QualityFor(flickShrink);
         var fx = quality == ThrowQuality.Perfect ? perfect : quality == ThrowQuality.Good ? good : sloppy;
 
+        // No random scatter: the lasso lands exactly where you aimed. Timing only affects speed and rope strength.
         float range = Mathf.Lerp(minRange, maxRange, power);
-        Vector2 projected = origin + flickDirection * range;
-        landingPoint = projected + Random.insideUnitCircle * radius; // Lands anywhere inside the accuracy circle.
+        landingPoint = origin + flickDirection * range;
         flightSpeed = Mathf.Lerp(minFlightSpeed, maxFlightSpeed, power) * fx.speedMultiplier;
         ropeStrength = baseRopeStrength * fx.ropeStrengthMultiplier;
-        state = State.Flying;
-
-        accuracyCircle.enabled = catchPreview.enabled = rangeRing.enabled = spinGuide.enabled = timingRing.enabled = false;
-        loop.transform.localScale = Vector3.one * catchRadius * 2f;
+        Launch(origin);
+        Thrown?.Invoke(landingPoint, flightSpeed, ropeStrength); // Lets the network test send this throw.
 
         LassoArena.Popup(QualityText(quality), origin + Vector2.up, QualityColor(quality));
         LiveSpinSummary = "";
-        LastThrowSummary = $"{quality}  |  spin {flickSpinRate / 360f:0.0}/sec  |  power {power:P0}  |  range {range:0.0}  |  accuracy circle {radius:0.0}  |  rope strength {ropeStrength:0.0}";
+        LastThrowSummary = $"{quality}  |  spin {flickSpinRate / 360f:0.0}/sec  |  power {power:P0}  |  range {range:0.0}  |  speed {flightSpeed:0.0}  |  rope strength {ropeStrength:0.0}";
+    }
+
+    /// <summary>
+    /// Replays the opponent's throw. Only the result of their spin travels over the network
+    /// (where it lands, how fast, how strong); the flight, catch and pull run locally.
+    /// </summary>
+    /// alreadyFlown: seconds since they threw (message travel time). The loop starts that far along its
+    /// flight, so it lands at the same match time on both screens, where the treasure is in the same place.
+    public void RemoteThrow(Vector2 landing, float speed, float strength, float alreadyFlown = 0f)
+    {
+        if (state == State.Flying || state == State.Pulling) return; // Still busy with their last throw.
+        landingPoint = landing;
+        flightSpeed = speed;
+        ropeStrength = strength;
+        SetVisible(true);
+        Launch(transform.position);
+        loopPos = Vector2.MoveTowards(loopPos, landingPoint, speed * Mathf.Max(0f, alreadyFlown));
+    }
+
+    // The lasso leaves the hand: shared by local and remote throws.
+    void Launch(Vector2 origin)
+    {
+        loopPos = origin;
+        state = State.Flying;
+
+        twirlSource.Stop();
+        if (throwClip != null)
+        {
+            throwSource.clip = throwClip;
+            throwSource.volume = sfxVolume;
+            throwSource.Play();
+            fadingThrow = false;
+        }
+
+        catchPreview.enabled = rangeRing.enabled = spinGuide.enabled = timingRing.enabled = false;
+        loop.transform.localScale = Vector3.one * catchRadius * 2f;
     }
 
     // ---------- Landing and pulling ----------
@@ -404,6 +487,9 @@ public class LassoThrower : MonoBehaviour
         snapDistance = Vector2.Distance(landingPoint, origin) * snapAtFraction;
         state = State.Pulling;
 
+        if (throwSource.isPlaying) fadingThrow = true; // The lasso arrived: fade the throw sound out.
+        if (hooked.Count > 0 && grabClip != null) sfxSource.PlayOneShot(grabClip, sfxVolume);
+
         if (hooked.Count == 0) LassoArena.Popup("miss", landingPoint, Color.gray);
         else if (stole) LassoArena.Popup("STOLEN!", landingPoint, new Color(1f, 0.4f, 0.8f));
         if (willSnap) LastThrowSummary += $"  |  load {totalWeight:0} > strength, will snap!";
@@ -431,7 +517,7 @@ public class LassoThrower : MonoBehaviour
 
     void Snap()
     {
-        foreach (var t in hooked) t.state = TreasureState.Free;
+        foreach (var t in hooked) LassoArena.Current.ReleaseToField(t); // Dropped treasure starts wandering again.
         hooked.Clear();
         hookedOffsets.Clear();
         willSnap = false;
@@ -443,7 +529,7 @@ public class LassoThrower : MonoBehaviour
         int gained = 0;
         foreach (var t in hooked)
         {
-            homeZone.Store(t, homeZone.RandomPoint());
+            homeZone.Store(t, homeZone.SharedRandomPoint(LassoArena.Current.MatchSeed, t));
             gained += t.value;
         }
         if (gained > 0) LassoArena.Popup($"+{gained}", (Vector2)transform.position + Vector2.up, new Color(1f, 0.85f, 0.2f));
@@ -469,7 +555,7 @@ public class LassoThrower : MonoBehaviour
     {
         loop.enabled = rope.enabled = spinGuide.enabled = timingRing.enabled = visible;
         rangeRing.enabled = visible && showDebugPreview;
-        accuracyCircle.enabled = catchPreview.enabled = false; // Only shown after a flick, in debug mode.
+        catchPreview.enabled = false; // Only shown after a flick, in debug mode.
     }
 
     // ---------- Helpers ----------

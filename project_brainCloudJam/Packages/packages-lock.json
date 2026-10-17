@@ -1,11 +1,10 @@
 {
   "dependencies": {
     "com.bitheads.braincloud": {
-      "version": "https://github.com/getbraincloud/braincloud-unity-package.git#6.0.0",
+      "version": "file:com.bitheads.braincloud",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "1fc792a639e3b7030405bb8c67565c63cec1749a"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.2d.animation": {
       "version": "16.0.1",
