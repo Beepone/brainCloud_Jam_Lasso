@@ -1,18 +1,21 @@
 // "using" lines let this file use code from other places without typing their full names.
-using System.Collections.Generic; // Queue<T> (a first-in, first-out list)
+using System.Collections.Generic; // List<T> (a list that can grow)
 using UnityEngine;                // MonoBehaviour, Vector2, Mathf, Time, Camera, Transform...
 using UnityEngine.InputSystem;    // Pointer (the new Input System: mouse and touch)
 
-// LassoSpin: the whole lasso throw.
+// LassoSpin: the lasso throw. One motion, like a real lasso or a hammer throw.
 //
-//   SPIN   Hold the button and circle the pointer around the player. The loop has momentum: it chases
-//          your hand, always trailing a little, and only speeds up gradually. Its speed = rope strength.
-//          Push it faster than it can follow and the rope TANGLES (wind-up back to zero).
-//   RING   Hold a steady spin for a moment and the timing ring appears around the player. It shrinks,
-//          then resets. Flick while it's small (PERFECT) and the loop opens wider (bigger catch area).
-//   FLICK  Flick the pointer outward. The flick's direction is where the lasso goes, and the flick's
-//          speed is how far. Release the button right after to throw.
-//   FLY    The loop flies out, lands, then is pulled back to the player.
+//   WIND UP  Hold the button and circle the pointer around your character. The loop has momentum: it
+//            chases your hand, always trailing a little, and only speeds up gradually.
+//            Spin too fast and it backlashes: the loop gets pulled the other way and slows down.
+//   SIZE     How FAR from your character you circle sets the loop's size: the loop orbits at that
+//            distance, and its catch radius is half that orbit. Wide = catches a lot but the rope is weaker;
+//            tight = precise and strong enough for heavy treasure.
+//   RELEASE  Let go, and the lasso flies off along the loop's path at that moment (a faint aim line
+//            shows where). Spin SPEED sets the distance: normal spins give short throws, only a
+//            really fast spin reaches the far side.
+//   FLY      The loop flies out (bouncing off the left/right screen edges), leaving the rope along its path. When it
+//            lands, the rope tightens into a straight line first, then the loop is pulled back.
 //
 // "public class LassoSpin : MonoBehaviour" means: a class (a blueprint for an object) named LassoSpin,
 // which is a MonoBehaviour. Being a MonoBehaviour is what lets you attach it to a GameObject as a
@@ -27,123 +30,124 @@ public class LassoSpin : MonoBehaviour
     [Header("Objects")]
     [Tooltip("The loop (drag the Loop object here). It orbits while spinning and flies when thrown.")]
     public Transform loop;
-    [Tooltip("How far from the player the loop circles, in world units.")]
-    public float spinRadius = 1.2f;
+    [Tooltip("Show a faint line where the lasso would fly if you let go now.")]
+    public bool showAimLine = true;
 
-    [Header("Spin: momentum")]
+    [Header("Hand distance -> loop size (hand distance in screen heights, so it feels the same on any screen)")]
+    [Tooltip("Circling this close to your character (fraction of the screen height) gives the SMALLEST loop.")]
+    public float minHandDistance = 0.05f;
+    [Tooltip("Circling this far from your character gives the BIGGEST loop.")]
+    public float maxHandDistance = 0.25f;
+    [Tooltip("How far from the character the loop orbits, for the smallest and biggest loop (world units). A wider orbit = a bigger catch area.")]
+    public float minOrbitRadius = 0.6f;
+    public float maxOrbitRadius = 1f;
+    [Tooltip("Catch radius = orbit radius x this. 0.5 = the landed loop's radius is half the orbit.")]
+    public float catchToOrbit = 0.5f;
+
+    [Header("Wind-up")]
     [Tooltip("How hard the loop is pulled toward your hand. Higher = trails less. (Degrees per second of speed per degree of lag.)")]
     public float followStrength = 10f;
     [Tooltip("The fastest the loop can speed up, in degrees per second, per second. Lower = longer wind-up.")]
     public float maxAcceleration = 900f;
-    [Tooltip("If your hand gets this many degrees ahead of the loop, the rope tangles.")]
-    public float tangleAngle = 120f;
-    [Tooltip("After tangling, the loop is stuck for this many seconds.")]
-    public float tangleStun = 0.4f;
+    [Tooltip("The rope's pull is capped as if your hand were at most this many degrees ahead. Top speed = followStrength x this.")]
+    public float slipAngle = 120f;
 
-    [Header("Spin: rope strength")]
-    [Tooltip("Loop speed (degrees per second) that gives the weakest rope...")]
+    [Header("Spin speed -> distance")]
+    [Tooltip("Slowest loop speed (degrees per second) that can be thrown. Shortest throw.")]
     public float minSpinSpeed = 180f;   // half a circle per second
-    [Tooltip("...and the strongest rope.")]
+    [Tooltip("Loop speed for the longest throw.")]
     public float maxSpinSpeed = 1080f;  // three circles per second
-    [Tooltip("Rope strength range: the total weight it can pull without snapping. Coin = 1, Chest = 3, Idol = 6.")]
-    public float minRopeStrength = 2f;
-    public float maxRopeStrength = 9f;
-
-    [Header("Timing ring")]
-    [Tooltip("Hold a steady spin for this long and the ring appears.")]
-    public float steadyTime = 1.2f;
-    [Tooltip("'Steady' = within this fraction of your recent average speed (0.12 = within 12%).")]
-    public float steadyTolerance = 0.12f;
-    [Tooltip("The loop must be spinning at least this fast (degrees per second) for the ring.")]
-    public float minSpeedForRing = 360f; // one circle per second
-    [Tooltip("Seconds for the ring to shrink from largest to smallest before resetting.")]
-    public float ringCycleTime = 1.4f;
-    [Tooltip("Flick when the shrink is at least this far along for a PERFECT (0 = largest, 1 = smallest).")]
-    [Range(0f, 1f)] public float perfectFrom = 0.75f;
-    public float ringMaxRadius = 1.1f;
-    public float ringMinRadius = 0.5f;
-
-    [Header("Flick (measured in screen heights per second, so it feels the same on any screen)")]
-    [Tooltip("How fast the pointer must move away from the player to count as a flick.")]
-    public float flickMinSpeed = 1.5f;
-    [Tooltip("Flick speed for the longest throw. Flicks between min and max scale the distance.")]
-    public float flickMaxSpeed = 6f;
-    [Tooltip("How much of the movement must point away from the player (0-1). Circling is sideways, so this filters it out.")]
-    [Range(0f, 1f)] public float flickOutwardRatio = 0.7f;
-    [Tooltip("Velocity is measured over this many seconds. Short, because a flick is quick.")]
-    public float velocityWindow = 0.08f;
-    [Tooltip("After a flick, you have this long to release the button.")]
-    public float releaseWindow = 0.2f;
-
-    [Header("Throw")]
     public float minRange = 1.5f;
     public float maxRange = 12f;
+    [Tooltip("How spin speed turns into distance. 1 = straight line. 2 = squared: normal spins stay short, only very fast spins reach far.")]
+    public float distanceCurve = 2f;
+
+    [Header("Rope and flight")]
+    [Tooltip("Rope strength (total weight it can pull without snapping) of the SMALLEST loop. Coin = 1, Chest = 3, Idol = 6.")]
+    public float smallLoopStrength = 9f;
+    [Tooltip("Rope strength of the BIGGEST loop. Big loops catch more but snap sooner.")]
+    public float bigLoopStrength = 4f;
     public float minFlightSpeed = 8f;
     public float maxFlightSpeed = 18f;
-    [Tooltip("Radius of the loop when it lands: everything inside will be caught.")]
-    public float catchRadius = 1f;
-    [Tooltip("A PERFECT throw multiplies the catch radius by this.")]
-    public float perfectCatchMultiplier = 1.6f;
-    public float returnSpeed = 20f;
+    [Tooltip("Pull-back speed when the loop is close to the character...")]
+    public float nearReturnSpeed = 10f;
+    [Tooltip("...and when it's at full throw distance (maxRange). Slow far pulls make long throws (like the rival's hoard) cost time.")]
+    public float farReturnSpeed = 4f;
+
+    [Tooltip("After landing, the rope straightens out before the pull starts. Shortest rope (minRange) takes this long...")]
+    public float minTightenTime = 0.15f;
+    [Tooltip("...and the longest rope (maxRange) takes this long.")]
+    public float maxTightenTime = 0.6f;
+
+    [Header("Wall bounces")]
+    [Tooltip("The lasso bounces off the left and right edges of the screen. The throw distance includes the bounces.")]
+    public bool bounceOffWalls = true;
+    [Tooltip("Also bounce off the top and bottom edges. Off = a throw that reaches them stops there (they're the hoard ends of the arena).")]
+    public bool bounceOffTopAndBottom = false;
+    [Tooltip("After this many bounces, the lasso just stops at the next wall.")]
+    public int maxBounces = 3;
 
     // ===== Readouts =====
     // Public only so you can watch them in the Inspector while playing. The code writes them.
     [Header("Readouts (watch these in Play mode)")]
     public string state;          // what the lasso is doing right now
+    public float handDistance;    // how far from your character you're circling, in screen heights
     public float loopSpeed;       // the loop's own spin speed, degrees per second (+ = counterclockwise)
     public float lag;             // how many degrees your hand is ahead of the loop
-    public float ropeStrength;    // what the current spin would give
-    public float steadyFor;       // how long you've held a steady speed
-    public bool ringVisible;
-    public float outwardSpeed;    // flick speed away from the player, screen heights per second
+    public bool slipping;         // true while you're spinning faster than the rope can pull
+    public float catchRadius;     // the loop's catch radius right now (orbit x catchToOrbit)
+    public float ropeStrength;    // the loop's rope strength right now (small loop = strong)
     public string lastThrow;      // summary of the last throw
 
     // ===== Private state =====
     // No "public" = private: hidden from the Inspector, only this script uses them.
 
     // An "enum" is a fixed list of named options. The lasso is always in exactly one of these.
-    enum Phase { Idle, Spinning, Flying, Returning }
+    //   Tightening  landed: the rope straightens out before the pull starts
+    enum Phase { Idle, WindUp, Flying, Tightening, Returning }
     Phase phase = Phase.Idle;
 
-    float loopAngle;        // where the loop is around the player (degrees, 0 = right, 90 = up)
-    float tangledUntil;     // Time.time until which the loop is stuck after a tangle
-    float referenceSpeed;   // slowly-following average of the loop's speed, for "is it steady?"
-    float unsteadyFor;      // how long the speed has been outside the steady range
-    float ringStartTime;    // when the ring appeared (its shrink cycle starts here)
+    float loopAngle;        // where the loop is around the character (degrees, 0 = right, 90 = up)
+    bool hasHandAngle;      // false until your hand is far enough from the character to read an angle
+    float loopSize01;       // loop size from 0 (smallest) to 1 (biggest), smoothed
 
-    // Each entry: when it happened, and where the pointer was ON SCREEN (pixels). For flick velocity.
-    readonly Queue<(float time, Vector2 screenPos)> recentPositions = new Queue<(float time, Vector2 screenPos)>();
-
-    // Values locked in at the start of a flick (the spin slows down during the flick itself).
-    bool inFlick;
-    float flickTime = -1f;
-    float flickRopeStrength, flickPeakSpeed;
-    bool flickPerfect;
-    Vector2 flickDirection;  // world direction of the flick
-
-    // The throw in flight.
-    Vector2 landingPoint;
+    // The throw in flight: the corners of its path (each bounce, then the landing point), in order.
+    // A List is like an array that can grow: Add() puts an item on the end, [i] reads item i.
+    readonly List<Vector2> flightPath = new List<Vector2>();
+    int flightPoint;        // which corner of the path the loop is flying toward right now
     float flightSpeed;
 
     // Visuals made in code (placeholders until the art arrives).
-    SpriteRenderer ring, rope, loopSprite;
+    // aimLines is an array: a fixed-size row of items. One line per straight piece of the aim path.
+    SpriteRenderer aimTarget;
+    SpriteRenderer[] aimLines;
+    SpriteRenderer[] ropePieces; // one per straight piece of rope (it bends at each wall bounce)
+
+    // The rope's shape: the corners it passes through, from the player to the loop.
+    readonly List<Vector2> ropePoints = new List<Vector2>();
+    readonly List<Vector2> slackPoints = new List<Vector2>(); // the rope's shape the moment it landed
+    float tightenStart, tightenTime;  // when tightening started, and how long it takes
     Vector3 loopSpinScale;   // the loop's size while spinning (from the scene)
-    Color loopColor;         // the loop's color from the scene (we flash it red when tangled)
 
     // ===== Start =====
     // Unity calls Start once, before the first Update.
     void Start()
     {
         loopSpinScale = loop.localScale;
-        loopSprite = loop.GetComponent<SpriteRenderer>();
-        if (loopSprite != null) loopColor = loopSprite.color;
 
-        // The ring and rope are drawn with the placeholder shapes from the old prototype
+        // The rope and aim line are drawn with the placeholder shapes from the old prototype
         // (Scripts/Lasso/PlaceholderArt.cs). The artists' sprites will replace them.
-        ring = PlaceholderArt.CreateSprite("Timing Ring", PlaceholderArt.Ring, Color.white, 3);
-        rope = PlaceholderArt.CreateSprite("Rope", PlaceholderArt.Square, new Color(0.85f, 0.7f, 0.45f), 5);
-        ring.enabled = false;
-        rope.enabled = false;
+        // Rope pieces: one from the player to the first bounce (or the loop), then one more per bounce.
+        ropePieces = new SpriteRenderer[maxBounces + 1];
+        for (int i = 0; i < ropePieces.Length; i++)
+            ropePieces[i] = PlaceholderArt.CreateSprite("Rope " + i, PlaceholderArt.Square, new Color(0.85f, 0.7f, 0.45f), 5);
+        // One aim line per straight piece: the first throw, plus one more per possible bounce.
+        aimLines = new SpriteRenderer[maxBounces + 1];
+        for (int i = 0; i < aimLines.Length; i++) // "for": run this once for each i = 0, 1, 2, ...
+            aimLines[i] = PlaceholderArt.CreateSprite("Aim Line " + i, PlaceholderArt.Square, new Color(1f, 1f, 1f, 0.25f), 2);
+        aimTarget = PlaceholderArt.CreateSprite("Aim Target", PlaceholderArt.Ring, new Color(1f, 1f, 1f, 0.35f), 2);
+        HideRope();
+        HideAim();
         loop.gameObject.SetActive(false);
     }
 
@@ -160,279 +164,392 @@ public class LassoSpin : MonoBehaviour
         switch (phase)
         {
             case Phase.Idle:
-                // Waiting. Pressing starts a spin.
-                if (pointer.press.wasPressedThisFrame) StartSpin(pointer, playerPos);
+                if (pointer.press.wasPressedThisFrame) StartWindUp();
                 break;
 
-            case Phase.Spinning:
-                UpdateSpin(pointer, playerPos);
+            case Phase.WindUp:
+                UpdateWindUp(pointer, playerPos);
                 break;
 
             case Phase.Flying:
-                // MoveTowards moves a point toward a target by at most the given distance, never past it.
-                loop.position = Vector2.MoveTowards(loop.position, landingPoint, flightSpeed * Time.deltaTime);
-                if ((Vector2)loop.position == landingPoint) phase = Phase.Returning; // landed (catching comes in milestone 2)
+                UpdateFlight();
+                break;
+
+            case Phase.Tightening:
+                UpdateTightening(playerPos);
                 break;
 
             case Phase.Returning:
+                // The farther out the loop is, the slower it's pulled in. The speed is worked out every
+                // frame from the distance left, so a long throw starts slow and speeds up as it gets close.
+                float out01 = Vector2.Distance(loop.position, playerPos) / maxRange; // 0 = at the player, 1 = full distance
+                float returnSpeed = Mathf.Lerp(nearReturnSpeed, farReturnSpeed, out01);
                 loop.position = Vector2.MoveTowards(loop.position, playerPos, returnSpeed * Time.deltaTime);
                 if ((Vector2)loop.position == playerPos) EndThrow();
                 break;
         }
 
-        // While the loop is out, draw the rope from the player to it.
-        if (phase == Phase.Flying || phase == Phase.Returning) DrawRope(playerPos, loop.position);
+        // While the loop is out, draw the rope.
+        if (phase == Phase.Flying)
+        {
+            // The rope lies along the path it flew: player -> each wall bounce passed -> loop.
+            ropePoints.Clear();
+            ropePoints.Add(playerPos);
+            for (int i = 0; i < flightPoint && i < flightPath.Count; i++) ropePoints.Add(flightPath[i]);
+            ropePoints.Add(loop.position);
+            DrawRope(ropePoints);
+        }
+        else if (phase == Phase.Returning)
+        {
+            // Being pulled in: the rope is taut, a straight line.
+            ropePoints.Clear();
+            ropePoints.Add(playerPos);
+            ropePoints.Add(loop.position);
+            DrawRope(ropePoints);
+        }
+        // (Tightening draws its own rope, in UpdateTightening.)
 
         state = phase.ToString(); // readout
     }
 
-    // ===== Spinning =====
+    // ===== Wind-up =====
 
-    void StartSpin(Pointer pointer, Vector2 playerPos)
+    void StartWindUp()
     {
-        phase = Phase.Spinning;
-
-        // Start the loop right where the pointer is, not moving yet.
-        loopAngle = PointerAngle(pointer, playerPos);
+        phase = Phase.WindUp;
+        hasHandAngle = false; // the loop starts once your hand is far enough from the character
         loopSpeed = 0f;
-        tangledUntil = 0f;
-        referenceSpeed = 0f;
-        steadyFor = 0f;
-        unsteadyFor = 0f;
-        ringVisible = false;
-        inFlick = false;
-        flickTime = -1f;
-        recentPositions.Clear();
-
-        loop.localScale = loopSpinScale;
-        loop.gameObject.SetActive(true);
+        lag = 0f;
+        slipping = false;
+        loopSize01 = 0f;
+        handDistance = 0f;
+        loop.gameObject.SetActive(false); // appears when you start circling
     }
 
-    void UpdateSpin(Pointer pointer, Vector2 playerPos)
+    void UpdateWindUp(Pointer pointer, Vector2 playerPos)
     {
         float dt = Time.deltaTime; // how long this frame took, in seconds
 
-        // ----- Released? -----
+        // ----- Let go? -----
         // wasReleasedThisFrame is true only on the one frame you let go.
         if (pointer.press.wasReleasedThisFrame)
         {
-            // Only a release right after a flick throws. Otherwise the spin just stops.
-            if (Time.time - flickTime <= releaseWindow) Throw(playerPos);
-            else CancelSpin();
+            Release();
             return;
         }
 
-        // ----- 1. Momentum: the loop chases your hand -----
-        float handAngle = PointerAngle(pointer, playerPos);
+        // ----- 1. Where is your hand, relative to the character? -----
+        // Measured on screen (pixels), divided by the screen height, so the same hand movement gives
+        // the same result on a phone and a big monitor.
+        Vector2 screenPos = pointer.position.ReadValue();
+        Vector2 playerScreen = Camera.main.WorldToScreenPoint(playerPos); // the character, in screen pixels
+        Vector2 fromPlayer = screenPos - playerScreen;
+        handDistance = fromPlayer.magnitude / Screen.height;
 
-        // How far your hand is ahead of the loop. DeltaAngle takes the shortest way around (179 -> -179 = 2).
-        // Positive = hand is counterclockwise of the loop, negative = clockwise.
-        lag = Mathf.DeltaAngle(loopAngle, handAngle);
+        // ----- 2. Hand distance -> loop size -----
+        // Smoothed, so the loop swings out and in gently instead of jumping.
+        // The catch radius grows with the orbit: a wider swing lands as a bigger loop.
+        float size01 = Mathf.InverseLerp(minHandDistance, maxHandDistance, handDistance);
+        loopSize01 = Mathf.Lerp(loopSize01, size01, 1f - Mathf.Exp(-6f * dt));
+        float orbitRadius = Mathf.Lerp(minOrbitRadius, maxOrbitRadius, loopSize01);
+        catchRadius = orbitRadius * catchToOrbit;
 
-        if (Time.time < tangledUntil)
+        // Smaller loop = stronger rope. Lerp from small to big: size 0 gives smallLoopStrength, 1 gives bigLoopStrength.
+        ropeStrength = Mathf.Lerp(smallLoopStrength, bigLoopStrength, loopSize01);
+
+        // ----- 3. Momentum: the loop chases your hand -----
+        float wantedSpeed = 0f; // hand too close to read (yet): the loop just slows down
+        if (handDistance >= minHandDistance * 0.5f) // right on top of the character, the angle jitters
         {
-            // Tangled: the loop is stuck and the wind-up stays at zero until the stun ends.
-            loopSpeed = 0f;
-        }
-        else
-        {
-            // The further your hand is ahead, the faster the loop WANTS to go (like a stretched spring)...
-            float wantedSpeed = lag * followStrength;
+            // Your hand's angle around the character (0 = right, 90 = up).
+            float handAngle = Mathf.Atan2(fromPlayer.y, fromPlayer.x) * Mathf.Rad2Deg;
 
-            // ...but it has weight, so its speed can only change by maxAcceleration per second.
-            // That's the wind-up: getting the loop fast takes a few turns of steady spinning.
-            loopSpeed = Mathf.MoveTowards(loopSpeed, wantedSpeed, maxAcceleration * dt);
+            if (!hasHandAngle)
+            {
+                // First readable frame: put the loop where your hand is and show it.
+                loopAngle = handAngle;
+                hasHandAngle = true;
+                loop.gameObject.SetActive(true);
+            }
 
-            // ----- 2. Tangle check -----
-            // Your hand pulled too far ahead of the loop, in the direction it's spinning (or while it's
-            // barely moving): you whipped it faster than it can follow.
-            // Mathf.Sign gives +1 or -1. If the loop is AHEAD of your hand (you slowed down), that's fine:
-            // it just decelerates.
-            bool handAhead = Mathf.Abs(loopSpeed) < 30f || Mathf.Sign(lag) == Mathf.Sign(loopSpeed);
-            if (Mathf.Abs(lag) > tangleAngle && handAhead) Tangle();
+            // How far your hand is ahead of the loop (degrees; positive = counterclockwise of the loop).
+            // DeltaAngle takes the SHORTEST way around (179 -> -179 = 2). That's deliberate, and it's what
+            // makes overspinning BACKLASH: get your hand more than half a turn ahead and it suddenly counts
+            // as BEHIND the loop, so the loop gets pulled backwards and slows down. You have to ease off
+            // to keep gaining speed, like a real lasso when you yank it. (Don't "fix" this, it's a feature!)
+            lag = Mathf.DeltaAngle(loopAngle, handAngle);
+
+            // The rope can only pull so hard: treat your hand as at most slipAngle ahead, so the loop's pull
+            // (and so its top speed) is capped. Clamp keeps a number between a min and a max.
+            float pull = Mathf.Clamp(lag, -slipAngle, slipAngle);
+            slipping = Mathf.Abs(lag) > slipAngle;
+
+            // The further your hand is ahead, the faster the loop WANTS to go (like a stretched spring).
+            wantedSpeed = pull * followStrength;
         }
+
+        // The loop has weight, so its speed can only change by maxAcceleration per second.
+        // That's the wind-up: getting the loop fast takes a few turns of steady spinning.
+        loopSpeed = Mathf.MoveTowards(loopSpeed, wantedSpeed, maxAcceleration * dt);
+
+        if (!hasHandAngle) return; // nothing to show until you've started circling
 
         // Move the loop by its own speed. Repeat keeps the angle between 0 and 360.
         loopAngle = Mathf.Repeat(loopAngle + loopSpeed * dt, 360f);
-        loop.position = playerPos + Dir(loopAngle) * spinRadius;
+        // The loop's distance from the character shows its size: bigger circles = it swings out wider.
+        loop.position = playerPos + Dir(loopAngle) * orbitRadius;
+        loop.localScale = loopSpinScale;
 
-        // ----- 3. Rope strength from the loop's speed -----
-        // InverseLerp: where is the speed between min and max? 0..1. Lerp: turn that 0..1 into a strength.
-        float spin01 = Mathf.InverseLerp(minSpinSpeed, maxSpinSpeed, Mathf.Abs(loopSpeed));
-        ropeStrength = Mathf.Lerp(minRopeStrength, maxRopeStrength, spin01);
-
-        // ----- 4. Timing ring: appears after a steady spin -----
-        UpdateSteadiness(dt);
-        UpdateRing(playerPos);
-
-        // ----- 5. Flick detection -----
-        UpdateFlick(pointer, playerPos);
+        // ----- 4. Aim line -----
+        if (showAimLine) UpdateAim();
+        else HideAim();
     }
 
-    void Tangle()
+    // ===== Release: the throw =====
+
+    void Release()
     {
-        tangledUntil = Time.time + tangleStun;
-        loopSpeed = 0f;
-        steadyFor = 0f;
-        ringVisible = false;
-        if (loopSprite != null) loopSprite.color = new Color(1f, 0.3f, 0.3f); // red = tangled
-        lastThrow = "TANGLED! Spun up too fast.";
-    }
+        HideAim();
 
-    void UpdateSteadiness(float dt)
-    {
-        if (loopSprite != null && Time.time >= tangledUntil) loopSprite.color = loopColor; // un-tangled: back to normal
-
-        float speed = Mathf.Abs(loopSpeed);
-
-        // referenceSpeed slowly follows the real speed. 1 - Exp(-rate * dt) is a smooth, frame-rate
-        // independent way to say "move about rate * 100% of the way per second".
-        referenceSpeed = Mathf.Lerp(referenceSpeed, speed, 1f - Mathf.Exp(-3f * dt));
-
-        // Steady = fast enough, and close to the recent average.
-        bool steady = speed >= minSpeedForRing
-                   && Mathf.Abs(speed - referenceSpeed) <= steadyTolerance * referenceSpeed;
-
-        if (steady)
+        // Barely spinning: nothing to throw, the lasso just drops.
+        if (!hasHandAngle || Mathf.Abs(loopSpeed) < minSpinSpeed)
         {
-            steadyFor += dt;
-            unsteadyFor = 0f;
-        }
-        else
-        {
-            // A small grace period, so one wobbly frame doesn't kill the ring.
-            unsteadyFor += dt;
-            if (unsteadyFor > 0.25f) steadyFor = 0f;
+            lastThrow = "Not enough spin. Wind up more!";
+            phase = Phase.Idle;
+            loop.gameObject.SetActive(false);
+            return;
         }
 
-        bool shouldShow = steadyFor >= steadyTime;
-        if (shouldShow && !ringVisible) ringStartTime = Time.time; // just appeared: start its shrink cycle
-        ringVisible = shouldShow;
-    }
+        float power = ThrowPower();
+        float distance = Mathf.Lerp(minRange, maxRange, power);
+        flightSpeed = Mathf.Lerp(minFlightSpeed, maxFlightSpeed, power);
 
-    void UpdateRing(Vector2 playerPos)
-    {
-        ring.enabled = ringVisible;
-        if (!ringVisible) return;
+        // Work out the whole path up front, bounces included. The flight then just follows it.
+        // (Same inputs = same path, which will matter for online play.)
+        TracePath(loop.position, SwingDirection(), distance, flightPath);
+        flightPoint = 0;
 
-        float shrink = RingShrink();
-        ring.transform.position = playerPos;
-        ring.transform.localScale = Vector3.one * Mathf.Lerp(ringMaxRadius, ringMinRadius, shrink) * 2f;
-        ring.color = shrink >= perfectFrom ? new Color(0.3f, 1f, 0.4f) : new Color(1f, 1f, 1f, 0.6f); // green = PERFECT now
-    }
-
-    // 0 = ring at its largest, 1 = smallest. Repeat makes it loop: 0 -> 1, back to 0, and so on.
-    float RingShrink() => Mathf.Repeat((Time.time - ringStartTime) / ringCycleTime, 1f);
-
-    // ===== Flick =====
-
-    void UpdateFlick(Pointer pointer, Vector2 playerPos)
-    {
-        // We measure the flick in SCREEN space and divide by the screen's height, so the same physical
-        // flick gives the same result on a phone and on a big monitor.
-        Vector2 screenPos = pointer.position.ReadValue();
-        recentPositions.Enqueue((Time.time, screenPos));
-        while (recentPositions.Count > 1 && recentPositions.Peek().time < Time.time - velocityWindow)
-            recentPositions.Dequeue();
-
-        var oldest = recentPositions.Peek();
-        float span = Time.time - oldest.time;
-        if (span <= 0f) return; // first frame: nothing to compare yet
-
-        // Velocity in screen heights per second.
-        Vector2 velocity = (screenPos - oldest.screenPos) / span / Screen.height;
-
-        // Outward direction on screen: from the player (converted to screen pixels) to the pointer.
-        Vector2 playerScreen = Camera.main.WorldToScreenPoint(playerPos);
-        Vector2 outward = (screenPos - playerScreen).normalized;
-
-        // Dot product = how fast we're moving away from the player (the "shadow" of velocity on outward).
-        outwardSpeed = Vector2.Dot(velocity, outward);
-
-        // A flick = moving outward fast enough, AND mostly outward (not sideways like circling).
-        bool isFlick = outwardSpeed >= flickMinSpeed && outwardSpeed >= flickOutwardRatio * velocity.magnitude;
-
-        if (isFlick)
-        {
-            if (!inFlick)
-            {
-                // First frame of the flick: lock in the spin's results before the flick slows the loop.
-                flickRopeStrength = ropeStrength;
-                flickPerfect = ringVisible && RingShrink() >= perfectFrom;
-                flickPeakSpeed = 0f;
-            }
-            inFlick = true;
-            flickTime = Time.time;
-
-            // The hardest moment of the flick decides the distance.
-            flickPeakSpeed = Mathf.Max(flickPeakSpeed, outwardSpeed);
-
-            // The flick's direction, converted to world space (the world-space arrow between the two points).
-            Vector2 worldNow = Camera.main.ScreenToWorldPoint(screenPos);
-            Vector2 worldOld = Camera.main.ScreenToWorldPoint(oldest.screenPos);
-            flickDirection = (worldNow - worldOld).normalized;
-        }
-        else
-        {
-            inFlick = false;
-        }
-    }
-
-    // ===== Throw =====
-
-    void Throw(Vector2 playerPos)
-    {
-        // Flick speed -> distance. Spin -> rope strength (already locked in). Ring -> bigger loop on PERFECT.
-        float flick01 = Mathf.InverseLerp(flickMinSpeed, flickMaxSpeed, flickPeakSpeed);
-        float distance = Mathf.Lerp(minRange, maxRange, flick01);
-        flightSpeed = Mathf.Lerp(minFlightSpeed, maxFlightSpeed, flick01);
-        landingPoint = playerPos + flickDirection * distance; // exactly where you flicked, no random scatter
-
-        float radius = catchRadius * (flickPerfect ? perfectCatchMultiplier : 1f);
-        loop.localScale = Vector3.one * radius * 2f; // the loop opens up to its catch size
-        loop.position = playerPos;
-        ring.enabled = false;
+        loop.localScale = Vector3.one * catchRadius * 2f; // the loop opens up to its catch size
         phase = Phase.Flying;
 
-        lastThrow = $"{(flickPerfect ? "PERFECT" : "Normal")} | flick {flickPeakSpeed:0.0} -> distance {distance:0.0} | rope strength {flickRopeStrength:0.0} | catch radius {radius:0.0}";
+        int bounces = flightPath.Count - 1;
+        lastThrow = $"spin {Mathf.Abs(loopSpeed) / 360f:0.0} circles/s -> distance {distance:0.0}, {bounces} bounce(s) | hand distance {handDistance:0.00} -> catch radius {catchRadius:0.0}, rope strength {ropeStrength:0.0}";
     }
 
-    void CancelSpin()
+    // Flies the loop along flightPath, one corner at a time.
+    void UpdateFlight()
     {
-        phase = Phase.Idle;
-        loopSpeed = 0f;
-        ring.enabled = false;
-        loop.gameObject.SetActive(false);
+        float step = flightSpeed * Time.deltaTime; // how far the loop may move this frame
+
+        // "while" because on a fast frame the loop might pass a bounce point and keep going.
+        while (step > 0f && flightPoint < flightPath.Count)
+        {
+            Vector2 pos = loop.position;
+            Vector2 target = flightPath[flightPoint];
+            float toTarget = Vector2.Distance(pos, target);
+
+            if (step < toTarget)
+            {
+                // Not there yet: move part of the way and stop for this frame.
+                loop.position = Vector2.MoveTowards(pos, target, step);
+                step = 0f;
+            }
+            else
+            {
+                // Reached this corner (a bounce, or the landing point): use up that distance and aim for the next.
+                loop.position = target;
+                step -= toTarget;
+                flightPoint++;
+            }
+        }
+
+        // Past the last corner = landed (catching comes in milestone 2).
+        if (flightPoint >= flightPath.Count) StartTightening();
+    }
+
+    // ===== Wall bounces =====
+
+    // The area the loop can fly in: what the camera sees, shrunk by the catch radius so the whole
+    // loop stays on screen. orthographicSize = half the visible height; aspect = width / height.
+    Rect PlayArea()
+    {
+        var cam = Camera.main;
+        float halfHeight = cam.orthographicSize - catchRadius;
+        float halfWidth = cam.orthographicSize * cam.aspect - catchRadius;
+        Vector2 center = cam.transform.position;
+        return new Rect(center.x - halfWidth, center.y - halfHeight, halfWidth * 2f, halfHeight * 2f);
+    }
+
+    // Fills "path" with the corners of a throw from start, in direction dir, travelling "distance" in
+    // total, bouncing off the play area's edges. The last point is where it lands.
+    void TracePath(Vector2 start, Vector2 dir, float distance, List<Vector2> path)
+    {
+        path.Clear();
+        Rect area = PlayArea();
+        Vector2 pos = start;
+        float remaining = distance;
+
+        for (int bounce = 0; bounce <= maxBounces; bounce++)
+        {
+            // How far along dir until we'd hit a side wall, and a top/bottom wall?
+            // (If we're not moving that way at all, we never hit it: infinity.)
+            float toSide = dir.x > 0f ? (area.xMax - pos.x) / dir.x
+                         : dir.x < 0f ? (area.xMin - pos.x) / dir.x
+                         : float.PositiveInfinity;
+            float toEnd = dir.y > 0f ? (area.yMax - pos.y) / dir.y
+                        : dir.y < 0f ? (area.yMin - pos.y) / dir.y
+                        : float.PositiveInfinity;
+            float toWall = Mathf.Max(0f, Mathf.Min(toSide, toEnd)); // whichever wall comes first
+
+            // Lands before reaching a wall (or bouncing is off): done.
+            if (!bounceOffWalls || remaining <= toWall)
+            {
+                path.Add(pos + dir * Mathf.Min(remaining, toWall));
+                return;
+            }
+
+            // Reached a wall: add the bounce point, then flip the direction like a mirror.
+            pos += dir * toWall;
+            remaining -= toWall;
+            path.Add(pos);
+            if (bounce == maxBounces) return; // out of bounces: it stops at this wall
+            if (toEnd <= toSide && !bounceOffTopAndBottom) return; // hit the top or bottom: it stops there
+
+            if (toSide <= toEnd) dir.x = -dir.x; // hit a side wall: reverse left/right
+            if (toEnd <= toSide) dir.y = -dir.y; // hit the top or bottom: reverse up/down (both = a corner)
+        }
     }
 
     void EndThrow()
     {
         phase = Phase.Idle;
-        rope.enabled = false;
+        HideRope();
         loop.gameObject.SetActive(false);
+    }
+
+    // ===== Tightening: the rope straightens before the pull =====
+
+    void StartTightening()
+    {
+        // Remember the rope's slack shape (the shape it was drawn in on the last flying frame).
+        slackPoints.Clear();
+        slackPoints.AddRange(ropePoints); // AddRange copies every item from another list
+        if (slackPoints.Count > 0) slackPoints[slackPoints.Count - 1] = loop.position;
+
+        // Longer rope = takes longer to tighten. Its length = all its straight pieces added up.
+        float length = 0f;
+        for (int i = 1; i < slackPoints.Count; i++) length += Vector2.Distance(slackPoints[i - 1], slackPoints[i]);
+        tightenTime = Mathf.Lerp(minTightenTime, maxTightenTime, Mathf.InverseLerp(minRange, maxRange, length));
+        tightenStart = Time.time;
+        phase = Phase.Tightening;
+    }
+
+    void UpdateTightening(Vector2 playerPos)
+    {
+        // t goes from 0 to 1 over tightenTime. SmoothStep eases it in and out, so it starts and ends gently.
+        float t = Mathf.Clamp01((Time.time - tightenStart) / tightenTime);
+        float eased = Mathf.SmoothStep(0f, 1f, t);
+
+        // Every bend in the rope slides toward the straight line between the player and the loop.
+        // Each bend's spot on that line is as far along it as the bend is along the rope (by length),
+        // so the rope straightens evenly instead of bunching up.
+        Vector2 loopPos = loop.position;
+        float total = 0f;
+        for (int i = 1; i < slackPoints.Count; i++) total += Vector2.Distance(slackPoints[i - 1], slackPoints[i]);
+
+        ropePoints.Clear();
+        float along = 0f;
+        for (int i = 0; i < slackPoints.Count; i++)
+        {
+            if (i > 0) along += Vector2.Distance(slackPoints[i - 1], slackPoints[i]);
+            float fraction = total > 0f ? along / total : 0f;
+            Vector2 onStraightLine = Vector2.Lerp(playerPos, loopPos, fraction);
+            ropePoints.Add(Vector2.Lerp(slackPoints[i], onStraightLine, eased));
+        }
+        DrawRope(ropePoints);
+
+        if (t >= 1f) phase = Phase.Returning; // taut: now the pull starts
+    }
+
+    // ===== Spin math =====
+
+    // How fast the loop is spinning, from 0 (minSpinSpeed or slower) to 1 (maxSpinSpeed or faster),
+    // bent by distanceCurve. InverseLerp: "where is this value between min and max?" as 0..1.
+    // Pow(x, 2) = x squared: 0.5 becomes 0.25, so the low and middle range stay short and the
+    // distance only shoots up near the top. Reaching the far side takes a great spin.
+    float ThrowPower() =>
+        Mathf.Pow(Mathf.InverseLerp(minSpinSpeed, maxSpinSpeed, Mathf.Abs(loopSpeed)), distanceCurve);
+
+    // The way the loop is moving right now: along its circle, sideways to the rope (the "tangent").
+    // Counterclockwise (positive speed) = 90 degrees ahead of the loop's angle; clockwise = 90 behind.
+    // That's the direction a lasso or a sling flies when you let go.
+    Vector2 SwingDirection() => Dir(loopAngle + (loopSpeed >= 0f ? 90f : -90f));
+
+    // ===== Aim line =====
+
+    // Reused every frame for the aim preview, so we don't create a new list 60 times a second.
+    readonly List<Vector2> aimPath = new List<Vector2>();
+
+    // Draws the faint aim path from the loop: the same path the throw would take if you let go now,
+    // bounces included, with a ring the size of the catch area where it would land.
+    void UpdateAim()
+    {
+        // Too slow to throw: nothing to preview.
+        if (Mathf.Abs(loopSpeed) < minSpinSpeed) { HideAim(); return; }
+
+        TracePath(loop.position, SwingDirection(), Mathf.Lerp(minRange, maxRange, ThrowPower()), aimPath);
+
+        // One line per straight piece: from the loop to the first corner, then corner to corner.
+        Vector2 from = loop.position;
+        for (int i = 0; i < aimLines.Length; i++)
+        {
+            bool used = i < aimPath.Count;
+            aimLines[i].enabled = used;
+            if (!used) continue; // "continue" skips to the next i
+            StretchBetween(aimLines[i].transform, from, aimPath[i], 0.04f);
+            from = aimPath[i];
+        }
+
+        aimTarget.transform.position = aimPath[aimPath.Count - 1]; // the last point = where it lands
+        aimTarget.transform.localScale = Vector3.one * catchRadius * 2f;
+        aimTarget.enabled = true;
+    }
+
+    void HideAim()
+    {
+        foreach (var line in aimLines) line.enabled = false;
+        aimTarget.enabled = false;
     }
 
     // ===== Helpers =====
 
-    // The pointer's angle around the player, in degrees (0 = right, 90 = up).
-    float PointerAngle(Pointer pointer, Vector2 playerPos)
-    {
-        Vector2 worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue());
-        Vector2 toPointer = worldPos - playerPos;
-        return Mathf.Atan2(toPointer.y, toPointer.x) * Mathf.Rad2Deg;
-    }
-
     // Turns an angle into a direction arrow of length 1. (The opposite of Atan2.)
+    // "=>" is a short way to write a method that just returns one expression.
     static Vector2 Dir(float degrees) =>
         new Vector2(Mathf.Cos(degrees * Mathf.Deg2Rad), Mathf.Sin(degrees * Mathf.Deg2Rad));
 
-    // Stretches the rope sprite (a 1x1 square) into a thin line between two points.
-    void DrawRope(Vector2 from, Vector2 to)
+    // Draws the rope through a list of points: one straight piece between each pair of neighbours.
+    void DrawRope(List<Vector2> points)
     {
-        rope.enabled = true;
+        for (int i = 0; i < ropePieces.Length; i++)
+        {
+            bool used = i + 1 < points.Count; // piece i goes from point i to point i+1
+            ropePieces[i].enabled = used;
+            if (used) StretchBetween(ropePieces[i].transform, points[i], points[i + 1], 0.06f);
+        }
+    }
+
+    void HideRope()
+    {
+        foreach (var piece in ropePieces) piece.enabled = false;
+    }
+
+    // Stretches a 1x1 square sprite into a thin line between two points.
+    static void StretchBetween(Transform line, Vector2 from, Vector2 to, float thickness)
+    {
         Vector2 delta = to - from;
-        rope.transform.position = from + delta * 0.5f;                                 // middle of the line
-        rope.transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg); // turned to face along it
-        rope.transform.localScale = new Vector3(delta.magnitude, 0.06f, 1f);          // as long as the line, thin
+        line.position = from + delta * 0.5f;                                                 // middle of the line
+        line.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg); // turned to face along it
+        line.localScale = new Vector3(delta.magnitude, thickness, 1f);                      // as long as the line, thin
     }
 }

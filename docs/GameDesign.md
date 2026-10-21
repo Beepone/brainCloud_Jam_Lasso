@@ -43,29 +43,33 @@ Match length defaults to **2 minutes** and is a field in the Inspector, so it ca
 
 ## 3. The lasso (controls)
 
-*Redesigned Oct 20.* The prototype's loop snapped straight to the pointer and power was a hidden 1-second average, so the wind-up didn't feel like anything. Now the loop has **momentum** like a real lasso, and each action has one clear job:
+*Redesigned Oct 20 after several playtests.* One motion, like a real lasso or a hammer throw: **spin it up, then let go when it's swinging toward your target.** Each part of the spin controls one thing:
 
-| Action | What it controls |
-|---|---|
-| **Spin** (the loop's momentum) | **Rope strength**: how much weight you can haul without the rope snapping |
-| **Flick direction** | Where the lasso goes (exactly, no random scatter) |
-| **Flick speed** | How far it goes |
-| **Timing ring** (bonus) | A **PERFECT** flick opens the loop wider: a bigger catch area |
+| You control | By | It sets |
+|---|---|---|
+| **Direction** | When you let go | The lasso flies off along the loop's path at that moment |
+| **Distance** | How fast you spin | Slow spins throw short; only a near-top-speed spin reaches far |
+| **Loop size and strength** | How far from your character you circle | Wide circles = a big loop (catches more) with a weak rope; tight circles = a small, precise loop with a strong rope |
 
 | Step | What the player does | What the game does |
 |---|---|---|
-| **Wind up** | Hold the button and circle the pointer around your character | The loop **chases your hand and always trails a little**. It can only speed up gradually (max acceleration), so getting it fast takes a few turns of steady spinning. Its speed sets the rope strength. |
-| **Too fast** | Whip the pointer faster than the loop can follow | When your hand gets more than ~120° ahead of the loop, the rope **tangles**: the loop flashes red, stalls for 0.4 s, and the wind-up drops to zero. |
-| **Steady** | Hold a consistent spin speed for ~1–2 s | The **timing ring** appears around your character. It shrinks, then resets (1.4 s cycle), and turns green in the PERFECT window. Speeding up or slowing down hides it again. |
-| **Flick** | Flick the pointer outward in the direction to throw | Locks in direction, rope strength and PERFECT/normal at the start of the flick. The hardest moment of the flick sets the distance. |
-| **Release** | Let go within 0.2 s of the flick | The lasso flies out, lands, and comes back. Releasing without a flick just stops the spin. |
+| **Wind up** | Hold the button and circle the pointer around your character | The loop has **momentum**: it chases your hand, always trails a little, and only speeds up gradually, so getting it fast takes a few turns. |
+| **Overspin** | Whip the pointer faster than the loop can follow | The rope's pull is capped (top speed ≈ 3.3 circles/s). Get your hand more than half a turn ahead and it **backlashes**: the loop is pulled the other way and slows down. You have to ease off and find the rhythm. |
+| **Size** | Circle closer or wider | The loop orbits at that distance (0.6–1.0 units); you see its size as how far out it swings. |
+| **Aim** | Watch the faint aim line | It shows the exact path the throw would take, bounces included, with a ring the size of the catch area where it would land. |
+| **Release** | Let go when the aim line is right | The lasso flies out. Too slow a spin (under half a circle per second) just drops it. |
+| **Flight** | — | It **bounces off the left and right screen edges** (up to 3 bounces; the distance includes them) and stops if it reaches the top or bottom edge. The rope lies along its path, from your character through each bounce. |
+| **Pull back** | — | On landing the rope **tightens** into a straight line (0.15–0.6 s, longer for longer ropes), then the loop is pulled in, **slower the farther out it is** (10 units/s near, 4 at full distance). A throw at the rival's hoard takes ~2.5 s before you can throw again; a short grab under half a second. |
 
-- **Distance:** 1.5 to 12 units, from flick speed. Flick speed is measured in **screen heights per second**, so the same physical flick throws the same distance on a phone and a big monitor.
-- **Rope strength:** 2 (half a circle per second) to 9 (three circles per second). Coin = 1, Chest = 3, Idol = 6.
-- **PERFECT:** catch radius ×1.6.
-- **Mouse and touch:** input goes through the Input System's `Pointer`, so a finger works exactly like the mouse.
-- **To test early:** on a phone your thumb covers the character while circling it. Compare "circle around your character" with "circle anywhere on screen" on a real phone.
-- All numbers are Inspector fields on `LassoSpin` (Scripts/Game) and will be tuned in playtests.
+**Numbers (Inspector fields on `LassoSpin`, Scripts/Game):**
+- **Distance:** 1.5 to 12 units, squared curve: about 2 units at 1 circle/s, 5 at 2, 12 at 3. **Reaching the rival's hoard is a skill shot**, and slow to recover from.
+- **Catch radius:** half the orbit: 0.3 (tight) to 0.5 (wide).
+- **Rope strength:** 9 for the tightest loop down to 4 for the widest. Coin = 1, Chest = 3, Idol = 6, so an idol needs a tight loop.
+- **Mouse and touch:** input goes through the Input System's `Pointer`; hand distance is measured in screen heights, so it feels the same on a phone and a big monitor.
+
+**Tried and dropped** (all in git history): flick to throw (`9fdb8a9`), wind-up then swipe, a timing ring with a PERFECT bonus, and the rope tangling (replaced by backlash).
+
+**Still to test:** on a phone, your thumb covers the character while circling it.
 
 ---
 
@@ -181,7 +185,7 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 |---|---|---|
 | Arena ground | Tileable ground plus edge/border | Must |
 | Two hoard zones | Clearly "mine" vs. "theirs" | Must |
-| Timing ring | Ring sprite (tinted red/yellow/green in code) | Must |
+| Aim line | Faint line + small target marker showing where the throw would land | Must |
 | UI kit | Buttons, panels, score display, timer, font choice | Must |
 | Title logo | "Loot Lasso" | Must |
 | VFX | Rope snap, catch puff, steal sparkle, Perfect flash, coin burst | Should |
@@ -214,8 +218,8 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
-| 1 | **The throw** | Wind-up with a lasso that has momentum, flick, timing ring, the loop flying out and landing. Feels good | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
-| 2 | **Solo match vs. bot** | Moving treasure, catching, pulling, snapping, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, timing ring, lasso rope/loop |
+| 1 | ✅ **The throw** | Swing and release with momentum and backlash, loop size from circle width, wall bounces, rope trail and tightening (done Oct 20) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
+| 2 | **Solo match vs. bot** | Moving treasure, catching, pulling, snapping, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, aim line, lasso rope/loop |
 | 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
 | 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
