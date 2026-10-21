@@ -12,7 +12,7 @@
 
 ## 1. The pitch
 
-Two cowpokes, one field full of living treasure. Spin your lasso, flick it out, and drag loot back to your hoard before your rival does. Or reach over and rope theirs.
+Two treasure hunters, one field full of living treasure. Spin your lasso, flick it out, and drag loot back to your hoard before your rival does. Or reach over and rope theirs.
 
 A short, real-time 1v1 browser game about **timing and greed**. Fast treasure is worth more but hard to hit, heavy treasure snaps weak ropes, and anything in your hoard can be stolen.
 
@@ -43,27 +43,29 @@ Match length defaults to **2 minutes** and is a field in the Inspector, so it ca
 
 ## 3. The lasso (controls)
 
-All values live on `LassoThrower` and can be tuned in the Inspector. The numbers below are the current prototype values.
+*Redesigned Oct 20.* The prototype's loop snapped straight to the pointer and power was a hidden 1-second average, so the wind-up didn't feel like anything. Now the loop has **momentum** like a real lasso, and each action has one clear job:
+
+| Action | What it controls |
+|---|---|
+| **Spin** (the loop's momentum) | **Rope strength**: how much weight you can haul without the rope snapping |
+| **Flick direction** | Where the lasso goes (exactly, no random scatter) |
+| **Flick speed** | How far it goes |
+| **Timing ring** (bonus) | A **PERFECT** flick opens the loop wider: a bigger catch area |
 
 | Step | What the player does | What the game does |
 |---|---|---|
-| **Wind up** | Hold left mouse and circle the mouse around your character | The lasso spins with your mouse. **Power = average spin speed over the last 1 second**, so throws need a wind-up. Pausing for 0.25 s restarts it. |
-| **Timing** | Watch the ring around your character | The ring shrinks, then resets (1.4 s cycle). Its color shows quality: **red = Sloppy, yellow = Good, green = Perfect**. |
-| **Flick** | Flick the mouse outward in the direction to throw | Locks in direction, power (from 0.15 s before the flick) and timing quality. |
-| **Release** | Let go within 0.2 s of the flick | The lasso flies. Releasing without a flick cancels; right click also cancels. |
+| **Wind up** | Hold the button and circle the pointer around your character | The loop **chases your hand and always trails a little**. It can only speed up gradually (max acceleration), so getting it fast takes a few turns of steady spinning. Its speed sets the rope strength. |
+| **Too fast** | Whip the pointer faster than the loop can follow | When your hand gets more than ~120° ahead of the loop, the rope **tangles**: the loop flashes red, stalls for 0.4 s, and the wind-up drops to zero. |
+| **Steady** | Hold a consistent spin speed for ~1–2 s | The **timing ring** appears around your character. It shrinks, then resets (1.4 s cycle), and turns green in the PERFECT window. Speeding up or slowing down hides it again. |
+| **Flick** | Flick the pointer outward in the direction to throw | Locks in direction, rope strength and PERFECT/normal at the start of the flick. The hardest moment of the flick sets the distance. |
+| **Release** | Let go within 0.2 s of the flick | The lasso flies out, lands, and comes back. Releasing without a flick just stops the spin. |
 
-- **Power → distance:** 1.5 to 15 units. Full power is about 4 circles per second.
-- **Aim:** the lasso lands **exactly** where you flicked. No random scatter.
+- **Distance:** 1.5 to 12 units, from flick speed. Flick speed is measured in **screen heights per second**, so the same physical flick throws the same distance on a phone and a big monitor.
+- **Rope strength:** 2 (half a circle per second) to 9 (three circles per second). Coin = 1, Chest = 3, Idol = 6.
+- **PERFECT:** catch radius ×1.6.
 - **Mouse and touch:** input goes through the Input System's `Pointer`, so a finger works exactly like the mouse.
-- **Screen-relative tuning:** flick speed and circle size are measured relative to the screen size, not in world units, so the throw feels the same on a phone and a big monitor.
-- **To test early:** on a phone your thumb covers the character while circling it. Compare "circle around your character" with "circle anywhere on screen" on a real phone (Oct 18).
-- **Timing quality affects the rope, not the aim:**
-
-| Quality | Rope strength | Flight speed |
-|---|---|---|
-| Perfect | ×1.5 (9) | ×1.3 |
-| Good | ×1.0 (6) | ×1.0 |
-| Sloppy | ×0.6 (3.6) | ×0.8 |
+- **To test early:** on a phone your thumb covers the character while circling it. Compare "circle around your character" with "circle anywhere on screen" on a real phone.
+- All numbers are Inspector fields on `LassoSpin` (Scripts/Game) and will be tuned in playtests.
 
 ---
 
@@ -98,13 +100,13 @@ Treasure is **anthropomorphised**: little characters that wander the field. More
 
 ## 6. Power-ups (stretch goal)
 
-Power-ups wander the field like treasure and are caught the same way. Only attempted if the core game is done and solid by **Oct 24**.
+Power-ups wander the field like treasure and are caught the same way. Only attempted if milestones 1–5 are done before the feature freeze (**Oct 27**).
 
 | Power-up | Effect |
 |---|---|
 | Golden Rope | The next throw can't snap |
 | Big Loop | Next throw's catch radius ×2 |
-| Quick Draw | Wind-up time halved for 10 s |
+| Quick Draw | The loop speeds up twice as fast for 10 s |
 | Shake-down | Scatters a few pieces of treasure out of the rival's hoard into the field |
 | Padlock | Your hoard can't be stolen from for 8 s |
 
@@ -206,25 +208,24 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 ## 12. Timeline
 
-Joey works evenings on weekdays. Artists work around their jobs. **Must** items first; **Should/Could** only when the day's Musts are done.
+*Re-planned Oct 20.* Work and other commitments made the first days short, and available hours vary a lot, so the plan is **milestones in priority order** instead of a fixed day-by-day schedule. Work down the list; wherever we are at the deadline, it's the most complete game possible. Claude writes most of the code (fully commented), and Joey designs, plays, tunes and reviews it.
 
-| Day | Date | Joey (code/audio) | Artists |
-|---|---|---|---|
-| 1 | Thu Oct 16 | ✅ Setup, brainCloud, throw/treasure/network prototypes | Kickoff: idea agreed |
-| 2 | Fri Oct 17 | Rebuild the throw together: spin, wind-up, flick, timing ring. Portrait camera, `Pointer` input, screen-relative flick | **Kickoff/style meeting:** pixel vs. drawn, PPU, palette, mood board, who does what. Concept sketches |
-| 3 | Sat Oct 18 | Treasure wandering, catching, pulling, snapping, hoards. **Phone test** of the throw (itch.io in a phone browser) | Player + treasure concepts → first coin in engine. Ground + zone concepts |
-| 4 | Sun Oct 19 | Solo match: timer, scoring, win conditions, **bot v1** | Coin/chest/idol idle + walk. Arena ground, hoard zones |
-| 5 | Mon Oct 20 | Online: matchmaking, host-decided catches, message protocol | Player idle/spin/throw. Timing ring, HUD elements |
-| 6 | Tue Oct 21 | Online: steals and snaps synced, bot fallback, disconnects. **First online build on itch** | Player pull, lasso rope/loop. UI kit, title logo |
-| 7 | Wed Oct 22 | Menus: title, name entry, matchmaking, results, leaderboard. **Art integration #1** | **Midpoint playtest together**, feedback |
-| 8 | Thu Oct 23 | Treasure reactions (flee, struggle), juice (shake, particles) | Treasure caught/struggle anims. VFX |
-| 9 | Fri Oct 24 | **Decision: power-ups or polish.** Audio: snap/steal/UI sounds | Reactions or power-ups. Decorations |
-| 10 | Sat Oct 25 | Music and audio pass. **Art integration #2**. Online playtest with friends | Fix-ups from playtest |
-| 11 | Sun Oct 26 | Balance and tuning, bug fixing. **🔒 Feature freeze at end of day** | Final art fixes |
-| 12 | Mon Oct 27 | Bugs, load size/performance, fresh-browser test on desktop **and phone** | **itch page:** cover, banner, screenshots, GIF |
-| 13 | Tue Oct 28 | Final bug pass, itch description (list brainCloud features) | Page layout and text review |
-| 14 | Wed Oct 29 | **Final build uploaded and submitted by the evening** (buffer night) | Final check of the page |
-| — | Thu Oct 30 | **Deadline 9:00 AM PT.** No work planned | — |
+**Done so far (Oct 16–20):** project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, first steps of the rebuilt throw (`LassoSpin.cs`).
+
+| # | Milestone | Done when | Target | Artists, same window |
+|---|---|---|---|---|
+| 1 | **The throw** | Wind-up with a lasso that has momentum, flick, timing ring, the loop flying out and landing. Feels good | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
+| 2 | **Solo match vs. bot** | Moving treasure, catching, pulling, snapping, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, timing ring, lasso rope/loop |
+| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
+| 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
+| 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
+| — | **🔒 Feature freeze** | Evening of **Mon Oct 27**: after this, only bugs, tuning and polish | | |
+| 6 | **Polish and sound** | Joey's SFX and music, juice (shake, particles), How to Play | Tue Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
+| 7 | **Ship** | itch.io page done, final build tested on desktop and phone, **submitted** | **Evening of Wed Oct 29** | Final check of the page |
+| — | **Deadline** | Thu Oct 30, 9:00 AM PT. No work planned | | |
+
+**Cut first if short on time:** power-ups (already a stretch goal), then treasure reactions, then music.
+**Never cut:** the bot opponent. Voters need someone to play against.
 
 **After submission:** uploads lock during voting, but brainCloud portal settings can still change. Keep the lobby and leaderboard working, and watch for bugs players report.
 
@@ -234,9 +235,9 @@ Joey works evenings on weekdays. Artists work around their jobs. **Must** items 
 
 | Risk | Plan |
 |---|---|
-| Online sync bugs eat the schedule | The bot match is a complete game on its own. If networking isn't solid by **Oct 23**, ship bot-first with online as a bonus |
+| Online sync bugs eat the schedule | The bot match is a complete game on its own. If networking isn't solid by **Oct 26**, ship bot-first with online as a bonus |
 | Nobody online during voting | Bot fallback after 15 s (Must) |
-| Art arrives late | Code uses placeholder shapes until art lands. Integrate art in batches (Oct 22, Oct 25) |
+| Art arrives late | Code uses placeholder shapes until art lands. Integrate art in batches (Oct 24, then whatever's ready by Oct 27) |
 | The throw is too hard for new players | How-to-Play card, generous defaults, tune on Oct 26 |
 | Scope creep | Cut in this order: power-ups → Mimic → player stats → treasure reactions → adaptive music |
 
