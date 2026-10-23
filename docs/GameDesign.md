@@ -14,7 +14,7 @@
 
 Two treasure hunters, one field full of living treasure. Spin your lasso, flick it out, and drag loot back to your hoard before your rival does. Or reach over and rope theirs.
 
-A short, real-time 1v1 browser game about **timing and greed**. Fast treasure is worth more but hard to hit, heavy treasure snaps weak ropes, and anything in your hoard can be stolen.
+A short, real-time 1v1 browser game about **timing and greed**. Fast treasure is worth more but hard to hit, heavy treasure ties you up while you haul it in, and anything in your hoard can be stolen.
 
 ### Design pillars
 1. **The throw feels physical.** You really spin the mouse and really flick it. Skill comes from wind-up, timing and aim, not from menus.
@@ -30,7 +30,7 @@ A short, real-time 1v1 browser game about **timing and greed**. Fast treasure is
 ```
 Spin up the lasso → flick to throw → loop lands → catch treasure inside it
       ↑                                                   ↓
-      └── treasure lands in your hoard ←── pull it back (rope can snap if overloaded)
+      └── treasure lands in your hoard ←── pull it back (heavy hauls are slow)
 ```
 
 A match ends when:
@@ -43,31 +43,28 @@ Match length defaults to **2 minutes** and is a field in the Inspector, so it ca
 
 ## 3. The lasso (controls)
 
-*Redesigned Oct 20 after several playtests.* One motion, like a real lasso or a hammer throw: **spin it up, then let go when it's swinging toward your target.** Each part of the spin controls one thing:
+*Redesigned Oct 20, simplified Oct 22 after playtests.* One motion, like a real lasso or a hammer throw: **spin it up, then let go when it's swinging toward your target.** Only two things to control:
 
 | You control | By | It sets |
 |---|---|---|
 | **Direction** | When you let go | The lasso flies off along the loop's path at that moment |
 | **Distance** | How fast you spin | Slow spins throw short; only a near-top-speed spin reaches far |
-| **Loop size and strength** | How far from your character you circle | Wide circles = a big loop (catches more) with a weak rope; tight circles = a small, precise loop with a strong rope |
 
 | Step | What the player does | What the game does |
 |---|---|---|
-| **Wind up** | Hold the button and circle the pointer around your character | The loop has **momentum**: it chases your hand, always trails a little, and only speeds up gradually, so getting it fast takes a few turns. |
+| **Wind up** | Hold the button and circle the pointer around your character | The loop sits right under your pointer (0.6–1.0 units out) and has **momentum**: it trails your hand a little and only speeds up gradually, so getting it fast takes a few turns. |
 | **Overspin** | Whip the pointer faster than the loop can follow | The rope's pull is capped (top speed ≈ 3.3 circles/s). Get your hand more than half a turn ahead and it **backlashes**: the loop is pulled the other way and slows down. You have to ease off and find the rhythm. |
-| **Size** | Circle closer or wider | The loop orbits at that distance (0.6–1.0 units); you see its size as how far out it swings. |
-| **Aim** | Watch the faint aim line | It shows the exact path the throw would take, bounces included, with a ring the size of the catch area where it would land. |
-| **Release** | Let go when the aim line is right | The lasso flies out. Too slow a spin (under half a circle per second) just drops it. |
-| **Flight** | — | It **bounces off the left and right screen edges** (up to 3 bounces; the distance includes them) and stops if it reaches the top or bottom edge. The rope lies along its path, from your character through each bounce. |
-| **Pull back** | — | On landing the rope **tightens** into a straight line (0.15–0.6 s, longer for longer ropes), then the loop is pulled in, **slower the farther out it is** (10 units/s near, 4 at full distance). A throw at the rival's hoard takes ~2.5 s before you can throw again; a short grab under half a second. |
+| **Release** | Let go when the loop is swinging toward your target | The lasso flies out. Too slow a spin (under half a circle per second) just drops it. **No aim line:** reading the swing is the skill. |
+| **Flight** | — | It **bounces off the left and right screen edges** (up to 3 bounces; the distance includes them) and stops if it reaches the top or bottom edge. The rope lies along its path. |
+| **Catch** | — | Everything free inside the landed loop (radius 0.5) is caught. |
+| **Pull back** | — | The rope **tightens** into a straight line (0.15–0.6 s), then the loop is pulled in **slower the farther out it is** (10 units/s near, 4 at full distance) **and slower the heavier the catch** (10% per unit of weight). The rope never snaps. |
 
 **Numbers (Inspector fields on `LassoSpin`, Scripts/Game):**
 - **Distance:** 1.5 to 12 units, squared curve: about 2 units at 1 circle/s, 5 at 2, 12 at 3. **Reaching the rival's hoard is a skill shot**, and slow to recover from.
-- **Catch radius:** half the orbit: 0.3 (tight) to 0.5 (wide).
-- **Rope strength:** 9 for the tightest loop down to 4 for the widest. Coin = 1, Chest = 3, Idol = 6, so an idol needs a tight loop.
-- **Mouse and touch:** input goes through the Input System's `Pointer`; hand distance is measured in screen heights, so it feels the same on a phone and a big monitor.
+- **Weight → haul time:** Coin = 1, Chest = 3, Idol = 6. An idol comes back ~60% slower than an empty loop, so grabbing one is a commitment.
+- **Mouse and touch:** input goes through the Input System's `Pointer`.
 
-**Tried and dropped** (all in git history): flick to throw (`9fdb8a9`), wind-up then swipe, a timing ring with a PERFECT bonus, and the rope tangling (replaced by backlash).
+**Tried and dropped** (all in git history): flick to throw, wind-up then swipe, a timing ring with a PERFECT bonus, rope tangling (replaced by backlash), loop size from circle width with rope strength and snapping, and the aim line / landing ring. All cut to keep the controls to one idea a new player gets in seconds.
 
 **Still to test:** on a phone, your thumb covers the character while circling it.
 
@@ -84,11 +81,11 @@ Treasure is **anthropomorphised**: little characters that wander the field. More
 | **Idol** | 15 | 6 | 3.5 | Vain and twitchy, sprints away |
 
 - **Catching:** everything inside the loop when it lands is caught. Catch radius is 1 unit.
-- **Rope snapping:** if the total weight caught is more than the rope's strength, the rope **snaps** 40% of the way back. The treasure drops right there and starts wandering again. Snapped loot can end up closer to *someone*, which is part of the strategy.
+- **Weight:** heavier treasure is hauled back more slowly (the rope never snaps). A big haul ties you up while your rival keeps throwing.
 - **Wandering** is calculated from the match seed and clock, so both players see identical movement without any network traffic.
 
 **Should have:** treasure reacts to the game. It flees from a lasso landing nearby, struggles while being pulled, and celebrates or sulks in a hoard.
-**Could have:** a **Mimic** chest that bites your rope (snaps it instantly).
+**Could have:** a **Mimic** chest that bites your rope: whatever's on it drops back into the field.
 
 ---
 
@@ -108,7 +105,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 
 | Power-up | Effect |
 |---|---|
-| Golden Rope | The next throw can't snap |
+| Quick Haul | Your next pull-back ignores weight |
 | Big Loop | Next throw's catch radius ×2 |
 | Quick Draw | The loop speeds up twice as fast for 10 s |
 | Shake-down | Scatters a few pieces of treasure out of the rival's hoard into the field |
@@ -126,9 +123,9 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 
 ### How the real game works
 - **Matchmaking:** login → RTT → find or create a `LassoLobby` lobby. The **lobby owner is the host**.
-- **What gets sent:** throws only (landing point, speed, rope strength, match time). Treasure movement is never sent.
-- **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs and snap mismatches.
-- **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `snap`, `matchEnd(scores)`, plus `ping` for latency.
+- **What gets sent:** throws only (direction, distance, match time). Treasure movement is never sent.
+- **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs.
+- **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `matchEnd(scores)`, plus `ping` for latency.
 - **No opponent?** After about **15 s** of waiting, the match starts against a **bot**. The bot uses the same throws as a player (picks a target, adds aim error, throws on a timer), so it needs no special rules.
 - **Disconnects:** if the opponent leaves mid-match, a bot takes over or the match ends with a "win by forfeit".
 
@@ -151,7 +148,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 2. **Name entry:** on first launch only, saved to brainCloud.
 3. **Matchmaking:** "Looking for a rival..." with a countdown → bot match if none found.
 4. **Match HUD:** both scores, timer, your name and the rival's name.
-5. **Results:** win/lose, score breakdown (caught, stolen, snapped), Play Again / Title.
+5. **Results:** win/lose, score breakdown (caught, stolen), Play Again / Title.
 6. **Leaderboard:** top 10 plus your rank.
 7. **How to Play:** a short animated or illustrated card. The throw needs explaining.
 
@@ -185,10 +182,9 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 |---|---|---|
 | Arena ground | Tileable ground plus edge/border | Must |
 | Two hoard zones | Clearly "mine" vs. "theirs" | Must |
-| Aim line | Faint line + small target marker showing where the throw would land | Must |
 | UI kit | Buttons, panels, score display, timer, font choice | Must |
 | Title logo | "Loot Lasso" | Must |
-| VFX | Rope snap, catch puff, steal sparkle, Perfect flash, coin burst | Should |
+| VFX | Catch puff, steal sparkle, deliver/coin burst, wall-bounce spark | Should |
 | Decorations | Cacti, rocks, props around the arena edge | Should |
 | itch.io page | Cover image **630×500**, banner, background, 3–5 screenshots, 1 GIF | Must (Oct 27–28) |
 
@@ -203,7 +199,7 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 | Lasso twirl (loop, pitch follows spin) | ✅ done |
 | Lasso throw (fades on landing) | ✅ done |
 | Lasso grab | ✅ done |
-| Rope snap, steal, deliver/score | To do |
+| Wall bounce, steal, deliver/score | To do |
 | Treasure voices (coin squeak, chest grumble, idol gasp) | To do |
 | UI clicks, timer warning, win/lose stingers | To do |
 | Music: title, match, final 30 s | To do. Doubles as the first tracks of the asset pack; stems allow adaptive layers (Could have) |
@@ -218,8 +214,8 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
-| 1 | ✅ **The throw** | Swing and release with momentum and backlash, loop size from circle width, wall bounces, rope trail and tightening (done Oct 20) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
-| 2 | **Solo match vs. bot** | Moving treasure, catching, pulling, snapping, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, aim line, lasso rope/loop |
+| 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
+| 2 | **Solo match vs. bot** | Moving treasure, catching, hauling, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
 | 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
 | 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
@@ -294,7 +290,7 @@ The team also wants to sell what we make as **asset packs**: mainly the **art, s
 |---|---|---|
 | Treasure & cowpoke sprites | Animated living treasure, player characters, lasso, arena tiles, props | Artists |
 | Loot Lasso UI kit | Buttons, panels, timing ring, icons, logo-free versions | Artists |
-| Treasure & loot SFX | Lasso twirl/throw/grab/snap, coin/chest/idol voices, steal, UI | Joey |
+| Treasure & loot SFX | Lasso twirl/throw/grab, coin/chest/idol voices, steal, UI | Joey |
 | Music | Title, match and final-30-seconds loops, with stems for adaptive layers | Joey |
 | *(Maybe)* Spin & flick throw | The lasso input system as a standalone Unity script package with a demo scene | Joey |
 

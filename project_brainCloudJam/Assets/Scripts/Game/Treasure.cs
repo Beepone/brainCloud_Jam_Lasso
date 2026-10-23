@@ -24,6 +24,37 @@ namespace LootLasso
         public float weight;
         public float speed;
         public State state = State.Free;
+        [Tooltip("Which hoard it's in, while InHoard. (A Rect is just the area; the Arena knows whose it is.)")]
+        public Rect hoard;
+        public int timesStored; // bumped each time it's put in a hoard, to vary its spot there
+
+        // ----- Being caught, dropped and stored -----
+
+        // Caught by a lasso: stop wandering. The lasso moves it from now on.
+        public void Hook()
+        {
+            state = State.Hooked;
+        }
+
+        // Dropped (the rope snapped): start wandering again from wherever it fell.
+        public void Drop(Arena arena)
+        {
+            StartWander(arena.matchSeed, arena.field, arena.MatchTime);
+        }
+
+        // Delivered to a hoard: sits at a spot picked from the shared seed, so online both players
+        // put it in exactly the same place (which matters when someone tries to steal it).
+        public void StoreIn(Rect hoardArea, Arena arena)
+        {
+            state = State.InHoard;
+            hoard = hoardArea;
+            var rng = new Prng(arena.matchSeed * 31 + id * 977 + timesStored * 7919);
+            timesStored++;
+            const float margin = 0.3f; // keep it a little away from the hoard's edges
+            transform.position = new Vector2(
+                rng.Range(hoardArea.xMin + margin, hoardArea.xMax - margin),
+                rng.Range(hoardArea.yMin + margin, hoardArea.yMax - margin));
+        }
 
         // ----- Wandering -----
         // The current "segment": move from 'from' to 'to', between match times segStart and segEnd.
@@ -40,7 +71,9 @@ namespace LootLasso
             var go = new GameObject($"{kind.name} {id}");
             go.transform.SetParent(arena.transform, false);
             go.transform.position = position;
-            go.transform.localScale = Vector3.one * kind.size;
+            // Real art is drawn at its true pixel size (imported at 22.857 pixels per unit, the map's scale),
+            // so it's used as-is. The placeholder circle is 1 unit wide, so it's scaled to the kind's size.
+            go.transform.localScale = kind.sprite != null ? Vector3.one : Vector3.one * kind.size;
 
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = kind.sprite != null ? kind.sprite : PlaceholderArt.Circle; // the art, or a placeholder

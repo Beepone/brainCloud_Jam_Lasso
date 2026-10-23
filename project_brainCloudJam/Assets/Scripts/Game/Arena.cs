@@ -14,31 +14,33 @@ namespace LootLasso
     // players' screens (online). The SCREEN is not quite symmetric: the camera sits a little low, so
     // there's a spare strip below your hoard and the rival's hoard runs right up to the top edge.
     //
-    //      world                                  your screen (camera size 7: y -7 to 7)
-    //      y =  7.0  ---------------------------  top of the screen
-    //                rival's hoard (mirror of yours), rival at its front edge (y = 5.38)
-    //      y =  5.38 ---------------------------
-    //                rival's spin room
-    //      y =  4.3  ---------------------------
-    //                FIELD: treasure wanders here. Mirror line through its middle (y = 0.69)
-    //      y = -2.92 ---------------------------
-    //                your spin room
-    //      y = -4.0  ---------------------------  you stand here, at your hoard's front edge
-    //                your hoard
-    //      y = -5.6  ---------------------------
-    //                (spare strip; its mirror is just off the top of the screen)
-    //      y = -7.0  ---------------------------  bottom of the screen
+    //      world                                  your screen (camera size 7: y -7 to 7)  map pixel row
+    //      y =  7.0   --------------------------  top of the screen                         0
+    //                 rival's hoard (mirror of yours), rival at its front edge (y = 5.425)
+    //      y =  5.425 --------------------------                                           36
+    //                 rival's spin room
+    //      y =  4.375 --------------------------                                           60
+    //                 FIELD: treasure wanders here. Mirror line through its middle (y = 0.7875)
+    //      y = -2.8   --------------------------                                          224
+    //                 your spin room
+    //      y = -3.85  --------------------------  you stand here, at your hoard's front edge 248
+    //                 your hoard
+    //      y = -5.425 --------------------------                                          284
+    //                 (spare strip; its mirror is just off the top of the screen)
+    //      y = -7.0   --------------------------  bottom of the screen                     320
     public class Arena : MonoBehaviour
     {
         // "static" = belongs to the class itself, not to one object. So any script can write
         // Arena.Current to find the arena, without needing a reference to it.
         public static Arena Current { get; private set; }
 
+        // These match the art's map template (docs/art/MapTemplate.md): a 180 x 320 pixel screen, so
+        // 1 world unit = 320 / 14 = 22.857 pixels, and every edge below lands on a whole pixel.
         [Header("Layout (world units). Rect = x, y of the bottom-left corner, then width, height.")]
         [Tooltip("Where treasure wanders. Its middle (top to bottom) is the mirror line between the two sides.")]
-        public Rect field = new Rect(-3.6f, -2.92f, 7.2f, 7.22f);
+        public Rect field = new Rect(-3.5875f, -2.8f, 7.175f, 7.175f);
         [Tooltip("Your hoard: a strip behind your character. The rival's hoard is its mirror image.")]
-        public Rect yourHoard = new Rect(-3.9f, -5.6f, 7.8f, 1.6f);
+        public Rect yourHoard = new Rect(-3.9375f, -5.425f, 7.875f, 1.575f);
 
         [Header("Calculated (read only: change Field and Your Hoard instead)")]
         [Tooltip("The mirror image of Your Hoard, so both hoards are always exactly the same size.")]
