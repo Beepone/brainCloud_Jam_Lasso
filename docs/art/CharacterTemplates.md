@@ -3,7 +3,7 @@
 All templates are in `docs/art/templates/`. Each has a 1× file (draw on top of it) and a big `_preview` copy (for looking at only). Draw on layers above the template, then **hide the template layer before exporting**.
 
 ## Pixel scale (the same as the map)
-- **1 world unit ≈ 23 px** (exactly 22.857). The screen is 180 × 320 px.
+- **1 world unit = 23 px** (the Pixel Perfect Camera uses 23 pixels per unit). The screen is 180 × 320 px.
 - On a 1080 × 1920 phone every art pixel becomes 6 × 6 screen pixels, so keep it crisp: no anti-aliasing or smooth scaling.
 - Export **PNG with transparency**.
 

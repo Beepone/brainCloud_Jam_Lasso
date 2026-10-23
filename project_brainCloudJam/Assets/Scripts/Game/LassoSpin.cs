@@ -30,6 +30,14 @@ namespace LootLasso
         [Header("Objects")]
         [Tooltip("The loop (drag the Loop object here). It orbits while spinning and flies when thrown.")]
         public Transform loop;
+
+        // Which player this lasso belongs to. Decides which hoard is "home" (where catches are delivered,
+        // and which you can't steal from). The bot will use this same script with side = Rival.
+        public enum Side { You, Rival }
+        [Tooltip("Whose lasso this is: its catches go to that side's hoard, and it can steal from the other one.")]
+        public Side side = Side.You;
+
+        Rect HomeHoard => side == Side.You ? Arena.Current.yourHoard : Arena.Current.rivalHoard;
         [Tooltip("The loop orbits right under your pointer, but never closer than this or farther than max (world units).")]
         public float minOrbitRadius = 0.6f;
         public float maxOrbitRadius = 1f;
@@ -423,11 +431,20 @@ namespace LootLasso
             if (arena == null) return; // no arena in the scene: just a practice throw
 
             Vector2 landing = loop.position;
+            Rect home = HomeHoard;
+            int stolenValue = 0;
             foreach (var t in arena.treasures)
             {
-                if (t.state != Treasure.State.Free) continue; // already hooked or in a hoard (stealing comes in step 3)
                 if (Vector2.Distance(t.transform.position, landing) > catchRadius) continue; // outside the loop
 
+                // Catchable: loose in the field, or sitting in the OTHER player's hoard (a steal).
+                // Not catchable: already on someone's rope, or in your own hoard.
+                // "||" means "or", "&&" means "and", "!=" means "is not".
+                bool loose = t.state == Treasure.State.Free;
+                bool steal = t.state == Treasure.State.InHoard && t.hoard != home;
+                if (!loose && !steal) continue;
+
+                if (steal) stolenValue += t.value;
                 t.Hook();
                 hooked.Add(t);
                 hookedOffsets.Add((Vector2)t.transform.position - landing); // where it sits inside the loop
@@ -437,6 +454,12 @@ namespace LootLasso
             caughtCount = hooked.Count;
             if (caughtCount == 0) lastThrow += " | missed";
             else lastThrow += $" | caught {caughtCount} (weight {caughtWeight:0})";
+
+            if (stolenValue > 0)
+            {
+                lastThrow += $" | STOLE {stolenValue}!";
+                ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f)); // pink, right where it landed
+            }
         }
 
         // Every frame of the pull: the caught treasure rides along with the loop, bunching up as it's dragged.
@@ -458,7 +481,7 @@ namespace LootLasso
             int gained = 0;
             foreach (var t in hooked)
             {
-                t.StoreIn(arena.yourHoard, arena);
+                t.StoreIn(HomeHoard, arena);
                 gained += t.value;
                 ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over each piece as it lands
             }

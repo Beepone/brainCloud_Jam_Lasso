@@ -14,33 +14,34 @@ namespace LootLasso
     // players' screens (online). The SCREEN is not quite symmetric: the camera sits a little low, so
     // there's a spare strip below your hoard and the rival's hoard runs right up to the top edge.
     //
-    //      world                                  your screen (camera size 7: y -7 to 7)  map pixel row
-    //      y =  7.0   --------------------------  top of the screen                         0
-    //                 rival's hoard (mirror of yours), rival at its front edge (y = 5.425)
-    //      y =  5.425 --------------------------                                           36
+    //      world                                  your screen (y -6.96 to 6.96)           map pixel row
+    //      y =  6.957 --------------------------  top of the screen                         0
+    //                 rival's hoard (mirror of yours), rival at its front edge (y = 5.391)
+    //      y =  5.391 --------------------------                                           36
     //                 rival's spin room
-    //      y =  4.375 --------------------------                                           60
-    //                 FIELD: treasure wanders here. Mirror line through its middle (y = 0.7875)
-    //      y = -2.8   --------------------------                                          224
+    //      y =  4.348 --------------------------                                           60
+    //                 FIELD: treasure wanders here. Mirror line through its middle (y = 0.783)
+    //      y = -2.783 --------------------------                                          224
     //                 your spin room
-    //      y = -3.85  --------------------------  you stand here, at your hoard's front edge 248
+    //      y = -3.826 --------------------------  you stand here, at your hoard's front edge 248
     //                 your hoard
-    //      y = -5.425 --------------------------                                          284
+    //      y = -5.391 --------------------------                                          284
     //                 (spare strip; its mirror is just off the top of the screen)
-    //      y = -7.0   --------------------------  bottom of the screen                     320
+    //      y = -6.957 --------------------------  bottom of the screen                     320
     public class Arena : MonoBehaviour
     {
         // "static" = belongs to the class itself, not to one object. So any script can write
         // Arena.Current to find the arena, without needing a reference to it.
         public static Arena Current { get; private set; }
 
-        // These match the art's map template (docs/art/MapTemplate.md): a 180 x 320 pixel screen, so
-        // 1 world unit = 320 / 14 = 22.857 pixels, and every edge below lands on a whole pixel.
+        // These match the art's map template (docs/art/MapTemplate.md): a 180 x 320 pixel screen at
+        // 23 pixels per world unit (the Pixel Perfect Camera's setting), so the screen is 320 / 23 = 13.91
+        // units tall and every edge below lands on a whole art pixel.
         [Header("Layout (world units). Rect = x, y of the bottom-left corner, then width, height.")]
         [Tooltip("Where treasure wanders. Its middle (top to bottom) is the mirror line between the two sides.")]
-        public Rect field = new Rect(-3.5875f, -2.8f, 7.175f, 7.175f);
+        public Rect field = new Rect(-3.5652f, -2.7826f, 7.1304f, 7.1304f);
         [Tooltip("Your hoard: a strip behind your character. The rival's hoard is its mirror image.")]
-        public Rect yourHoard = new Rect(-3.9375f, -5.425f, 7.875f, 1.575f);
+        public Rect yourHoard = new Rect(-3.913f, -5.3913f, 7.8261f, 1.5652f);
 
         [Header("Calculated (read only: change Field and Your Hoard instead)")]
         [Tooltip("The mirror image of Your Hoard, so both hoards are always exactly the same size.")]
@@ -79,6 +80,12 @@ namespace LootLasso
         [Tooltip("Same seed = same starting layout and same wandering every match. 0 = a new random seed each match.")]
         public int seed = 0;
 
+        [Header("Practice (until the bot exists)")]
+        [Tooltip("Start the rival's hoard with this many coins, so there's something to steal. Set to 0 once the bot plays.")]
+        public int practiceRivalCoins = 3;
+        [Tooltip("...and this many chests.")]
+        public int practiceRivalChests = 1;
+
         [Header("Readouts")]
         public int matchSeed;
         public float matchTime;
@@ -104,6 +111,9 @@ namespace LootLasso
         // OnValidate runs in the editor whenever a value changes in the Inspector,
         // so the rival hoard updates as you edit yours.
         void OnValidate() => rivalHoard = Mirror(yourHoard);
+
+        // Reset runs when you choose Reset from the component's menu (and when the component is first added).
+        void Reset() => rivalHoard = Mirror(yourHoard);
 
         // ----- Mirroring -----
         // The world mirrors top-to-bottom around the middle of the field.
@@ -144,6 +154,25 @@ namespace LootLasso
                     var start = new Vector2(rng.Range(field.xMin, field.xMax), rng.Range(field.yMin, field.yMax));
                     treasures.Add(Treasure.Spawn(id++, kind, start, this));
                 }
+            }
+
+            // Practice: put some extra treasure straight into the rival's hoard, to have something to steal.
+            // kinds[0] is the first kind in the list (Coin), kinds[1] the second (Chest).
+            if (kinds.Count >= 2)
+            {
+                SpawnInRivalHoard(kinds[0], practiceRivalCoins, ref id);
+                SpawnInRivalHoard(kinds[1], practiceRivalChests, ref id);
+            }
+        }
+
+        // "ref id" lets this method change the caller's id counter, so every treasure still gets its own number.
+        void SpawnInRivalHoard(TreasureKind kind, int count, ref int id)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var t = Treasure.Spawn(id++, kind, rivalHoard.center, this);
+                t.StoreIn(rivalHoard, this);
+                treasures.Add(t);
             }
         }
 

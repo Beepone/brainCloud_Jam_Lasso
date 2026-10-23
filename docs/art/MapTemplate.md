@@ -5,7 +5,7 @@ Use `templates/MapTemplate_180x320.png` as a **guide layer**: draw the map on la
 ## Canvas
 - **180 × 320 pixels**, portrait. This is the whole screen.
 - On a 1080 × 1920 phone, every art pixel becomes exactly **6 × 6 screen pixels**.
-- **All other art uses the same pixel scale**: a sprite that is 23 px wide covers about 23 px of this map. In world units, **1 unit ≈ 23 px** (exactly 22.857). The player character is ~1 unit, so **~23 px** wide.
+- **All other art uses the same pixel scale**: a sprite that is 23 px wide covers about 23 px of this map. In world units, **1 unit = 23 px** exactly (the Pixel Perfect Camera uses 23 pixels per unit). The player character is ~1 unit, so **~23 px** wide.
 - Export as **PNG**, no smoothing or anti-aliasing when scaling.
 
 ## Zones (pixel rows counted from the top, row 0 = top edge)
