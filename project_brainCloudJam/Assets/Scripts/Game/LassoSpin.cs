@@ -33,12 +33,8 @@ public class LassoSpin : MonoBehaviour
     [Tooltip("Show a faint line where the lasso would fly if you let go now.")]
     public bool showAimLine = true;
 
-    [Header("Hand distance -> loop size (hand distance in screen heights, so it feels the same on any screen)")]
-    [Tooltip("Circling this close to your character (fraction of the screen height) gives the SMALLEST loop.")]
-    public float minHandDistance = 0.05f;
-    [Tooltip("Circling this far from your character gives the BIGGEST loop.")]
-    public float maxHandDistance = 0.25f;
-    [Tooltip("How far from the character the loop orbits, for the smallest and biggest loop (world units). A wider orbit = a bigger catch area.")]
+    [Header("Hand distance -> loop size")]
+    [Tooltip("The loop orbits right under your pointer, but never closer than this or farther than max (world units). A wider orbit = a bigger catch area.")]
     public float minOrbitRadius = 0.6f;
     public float maxOrbitRadius = 1f;
     [Tooltip("Catch radius = orbit radius x this. 0.5 = the landed loop's radius is half the orbit.")]
@@ -91,7 +87,7 @@ public class LassoSpin : MonoBehaviour
     // Public only so you can watch them in the Inspector while playing. The code writes them.
     [Header("Readouts (watch these in Play mode)")]
     public string state;          // what the lasso is doing right now
-    public float handDistance;    // how far from your character you're circling, in screen heights
+    public float handDistance;    // how far your pointer is from your character, in world units
     public float loopSpeed;       // the loop's own spin speed, degrees per second (+ = counterclockwise)
     public float lag;             // how many degrees your hand is ahead of the loop
     public bool slipping;         // true while you're spinning faster than the rope can pull
@@ -109,7 +105,7 @@ public class LassoSpin : MonoBehaviour
 
     float loopAngle;        // where the loop is around the character (degrees, 0 = right, 90 = up)
     bool hasHandAngle;      // false until your hand is far enough from the character to read an angle
-    float loopSize01;       // loop size from 0 (smallest) to 1 (biggest), smoothed
+    float loopSize01;       // loop size from 0 (smallest) to 1 (biggest)
 
     // The throw in flight: the corners of its path (each bounce, then the landing point), in order.
     // A List is like an array that can grow: Add() puts an item on the end, [i] reads item i.
@@ -239,27 +235,25 @@ public class LassoSpin : MonoBehaviour
         }
 
         // ----- 1. Where is your hand, relative to the character? -----
-        // Measured on screen (pixels), divided by the screen height, so the same hand movement gives
-        // the same result on a phone and a big monitor.
-        Vector2 screenPos = pointer.position.ReadValue();
-        Vector2 playerScreen = Camera.main.WorldToScreenPoint(playerPos); // the character, in screen pixels
-        Vector2 fromPlayer = screenPos - playerScreen;
-        handDistance = fromPlayer.magnitude / Screen.height;
+        // In world units, so the loop can sit exactly under your pointer. (The camera scales the world
+        // to fit the screen, so this still feels the same on a phone and a big monitor.)
+        Vector2 worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue());
+        Vector2 fromPlayer = worldPos - playerPos;
+        handDistance = fromPlayer.magnitude;
 
         // ----- 2. Hand distance -> loop size -----
-        // Smoothed, so the loop swings out and in gently instead of jumping.
-        // The catch radius grows with the orbit: a wider swing lands as a bigger loop.
-        float size01 = Mathf.InverseLerp(minHandDistance, maxHandDistance, handDistance);
-        loopSize01 = Mathf.Lerp(loopSize01, size01, 1f - Mathf.Exp(-6f * dt));
-        float orbitRadius = Mathf.Lerp(minOrbitRadius, maxOrbitRadius, loopSize01);
-        catchRadius = orbitRadius * catchToOrbit;
+        // The loop orbits exactly as far out as your pointer is, so it sits right under it, as long as
+        // that's between the smallest and biggest loop. Clamp keeps a number between a min and a max.
+        float orbitRadius = Mathf.Clamp(handDistance, minOrbitRadius, maxOrbitRadius);
+        loopSize01 = Mathf.InverseLerp(minOrbitRadius, maxOrbitRadius, orbitRadius); // 0 = smallest, 1 = biggest
+        catchRadius = orbitRadius * catchToOrbit; // a wider swing lands as a bigger loop
 
         // Smaller loop = stronger rope. Lerp from small to big: size 0 gives smallLoopStrength, 1 gives bigLoopStrength.
         ropeStrength = Mathf.Lerp(smallLoopStrength, bigLoopStrength, loopSize01);
 
         // ----- 3. Momentum: the loop chases your hand -----
         float wantedSpeed = 0f; // hand too close to read (yet): the loop just slows down
-        if (handDistance >= minHandDistance * 0.5f) // right on top of the character, the angle jitters
+        if (handDistance >= minOrbitRadius * 0.3f) // right on top of the character, the angle jitters
         {
             // Your hand's angle around the character (0 = right, 90 = up).
             float handAngle = Mathf.Atan2(fromPlayer.y, fromPlayer.x) * Mathf.Rad2Deg;
