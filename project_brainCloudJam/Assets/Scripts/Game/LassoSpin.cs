@@ -153,6 +153,9 @@ namespace LootLasso
             var pointer = Pointer.current; // the mouse on a computer, or the first finger on a phone
             if (pointer == null) return;   // no mouse or touch at all, so do nothing
 
+            // Match over: freeze exactly as we are until Play Again (which calls ResetLasso).
+            if (Arena.Current != null && Arena.Current.isOver) return;
+
             Vector2 playerPos = transform.position;
 
             // "switch" runs the block for the current phase. "break" ends the block.
@@ -408,6 +411,19 @@ namespace LootLasso
                 if (toSide <= toEnd) dir.x = -dir.x; // hit a side wall: reverse left/right
                 if (toEnd <= toSide) dir.y = -dir.y; // hit the top or bottom: reverse up/down (both = a corner)
             }
+        }
+
+        // Back to the start: called by the Arena when a new match begins. Drops whatever was happening,
+        // including a throw in mid-air (its treasure is being replaced anyway).
+        public void ResetLasso()
+        {
+            hooked.Clear();
+            hookedOffsets.Clear();
+            caughtCount = 0;
+            caughtWeight = 0f;
+            loopSpeed = 0f;
+            lastThrow = "";
+            EndThrow();
         }
 
         void EndThrow()

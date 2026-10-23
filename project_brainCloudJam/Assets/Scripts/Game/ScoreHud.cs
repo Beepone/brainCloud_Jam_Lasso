@@ -53,15 +53,24 @@ namespace LootLasso
                 alignment = TextAnchor.MiddleCenter,
             };
 
-            // Your score: in the spare strip under your hoard. Rival's: in the top-left of their hoard.
-            Vector2 yourSpot = new Vector2(arena.yourHoard.center.x, arena.yourHoard.yMin - 0.75f);
-            DrawText($"YOU  {arena.YourScore}", yourSpot, YourColor, style);
+            // Once the match is over, show the frozen final scores.
+            int yourScore = arena.isOver ? arena.finalYourScore : arena.YourScore;
+            int rivalScore = arena.isOver ? arena.finalRivalScore : arena.RivalScore;
 
-            // The rival's score starts at the hoard's left edge (left-aligned), so it never runs off screen.
-            Vector2 rivalSpot = new Vector2(arena.rivalHoard.xMin + 0.25f, arena.rivalHoard.yMax - 0.45f);
-            style.alignment = TextAnchor.MiddleLeft;
-            DrawText($"RIVAL  {arena.RivalScore}", rivalSpot, RivalColor, style, leftAligned: true);
-            style.alignment = TextAnchor.MiddleCenter;
+            // Your score: in the spare strip under your hoard.
+            Vector2 yourSpot = new Vector2(arena.yourHoard.center.x, arena.yourHoard.yMin - 0.75f);
+            DrawText($"YOU  {yourScore}", yourSpot, YourColor, style, Align.Center);
+
+            // The rival's score: top-left of their hoard, starting at its left edge so it never runs off screen.
+            float topY = arena.rivalHoard.yMax - 0.45f;
+            DrawText($"RIVAL  {rivalScore}", new Vector2(arena.rivalHoard.xMin + 0.25f, topY), RivalColor, style, Align.Left);
+
+            // The timer: top-right, ending at the hoard's right edge. Red in the last 10 seconds.
+            // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
+            int secondsLeft = Mathf.CeilToInt(arena.timeLeft);
+            string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
+            Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
+            DrawText(clock, new Vector2(arena.rivalHoard.xMax - 0.25f, topY), clockColor, style, Align.Right);
 
             // Popups rise and fade. Loop backwards so removing finished ones doesn't skip any.
             style.fontSize = Mathf.RoundToInt(size * 0.85f);
@@ -74,19 +83,54 @@ namespace LootLasso
                 var color = p.color;
                 color.a = 1f - age / popupTime;                     // fade out
                 Vector2 pos = p.worldPos + Vector2.up * (age * 0.8f); // float upward
-                DrawText(p.text, pos, color, style);
+                DrawText(p.text, pos, color, style, Align.Center);
             }
+
+            if (arena.isOver) DrawResultPanel(arena, size);
         }
 
+        // The end-of-match panel in the middle of the screen: who won, why, the scores, and Play Again.
+        void DrawResultPanel(Arena arena, int size)
+        {
+            float w = Screen.width * 0.8f, h = Screen.height * 0.3f;
+            var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
+
+            // A dark see-through box behind the text. GUI.color tints everything drawn after it.
+            GUI.color = new Color(0f, 0f, 0f, 0.75f);
+            GUI.DrawTexture(panel, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            var title = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(size * 1.8f), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            var line = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.MiddleCenter };
+            title.normal.textColor = arena.result == "YOU WIN!" ? new Color(1f, 0.85f, 0.2f)
+                                   : arena.result == "RIVAL WINS" ? RivalColor
+                                   : Color.white;
+            line.normal.textColor = Color.white;
+
+            float row = h / 5f; // split the panel into 5 rows
+            GUI.Label(new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), arena.result, title);
+            GUI.Label(new Rect(panel.x, panel.y + row * 1.6f, w, row), arena.resultReason, line);
+            GUI.Label(new Rect(panel.x, panel.y + row * 2.4f, w, row), $"You {arena.finalYourScore}   -   Rival {arena.finalRivalScore}", line);
+
+            // GUI.Button draws a button and returns true on the frame it's clicked.
+            var button = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold };
+            var buttonRect = new Rect(panel.x + w * 0.25f, panel.y + row * 3.6f, w * 0.5f, row * 1.1f);
+            if (GUI.Button(buttonRect, "PLAY AGAIN", button)) arena.PlayAgain();
+        }
+
+        enum Align { Left, Center, Right }
+
         // Draws text at a world position, with a dark shadow so it reads on any background.
-        // Centred on the point, or (leftAligned) starting at it.
-        // "bool leftAligned = false" is an optional parameter: leave it out and it's false.
-        static void DrawText(string text, Vector2 worldPos, Color color, GUIStyle style, bool leftAligned = false)
+        // Left = starts at the point, Center = centred on it, Right = ends at it.
+        static void DrawText(string text, Vector2 worldPos, Color color, GUIStyle style, Align align)
         {
             // World -> screen pixels. GUI's y runs DOWN from the top, while the camera's runs UP from
             // the bottom, so flip it.
             Vector3 screen = Camera.main.WorldToScreenPoint(worldPos);
-            float x = leftAligned ? screen.x : screen.x - 200f;
+            float x = align == Align.Left ? screen.x : align == Align.Right ? screen.x - 400f : screen.x - 200f;
+            style.alignment = align == Align.Left ? TextAnchor.MiddleLeft
+                            : align == Align.Right ? TextAnchor.MiddleRight
+                            : TextAnchor.MiddleCenter;
             var rect = new Rect(x, Screen.height - screen.y - 50f, 400f, 100f);
 
             style.normal.textColor = new Color(0f, 0f, 0f, color.a * 0.7f);

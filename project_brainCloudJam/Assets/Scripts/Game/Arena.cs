@@ -86,9 +86,18 @@ namespace LootLasso
         [Tooltip("...and this many chests.")]
         public int practiceRivalChests = 1;
 
+        [Header("Match")]
+        [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
+        public float matchLength = 120f;
+
         [Header("Readouts")]
         public int matchSeed;
         public float matchTime;
+        public float timeLeft;
+        public bool isOver;
+        public string result;      // "YOU WIN!", "RIVAL WINS", "DRAW"
+        public string resultReason; // why it ended
+        public int finalYourScore, finalRivalScore; // scores frozen at the end
 
         // Every treasure in the arena. Other scripts (the lasso) look through this to see what they caught.
         public readonly List<Treasure> treasures = new List<Treasure>();
@@ -140,8 +149,15 @@ namespace LootLasso
             foreach (var t in treasures) Destroy(t.gameObject);
             treasures.Clear();
 
+            // Reset every lasso, in case one was mid-throw holding treasure we just destroyed.
+            // FindObjectsByType finds every LassoSpin in the scene (yours, and later the bot's).
+            foreach (var lasso in FindObjectsByType<LassoSpin>()) lasso.ResetLasso();
+
             matchSeed = newSeed;
             matchStart = Time.realtimeSinceStartupAsDouble;
+            isOver = false;
+            result = resultReason = "";
+            timeLeft = matchLength;
 
             // Prng = our own random number generator (see Treasure.cs). Same seed = same numbers,
             // on every computer. Unity's Random can't promise that.
@@ -178,9 +194,46 @@ namespace LootLasso
 
         void Update()
         {
+            if (isOver) return; // match over: everything freezes until Play Again
+
             matchTime = MatchTime; // readout
             foreach (var t in treasures) t.UpdateWander(matchTime);
+
+            // ----- End conditions -----
+            timeLeft = Mathf.Max(0f, matchLength - matchTime);
+            if (timeLeft <= 0f)
+            {
+                EndMatch("Time's up!");
+                return;
+            }
+
+            // Someone owns everything: every treasure is in the same hoard (none loose or on a rope).
+            if (OwnsEverything(yourHoard)) EndMatch("You took every treasure!");
+            else if (OwnsEverything(rivalHoard)) EndMatch("The rival took every treasure!");
         }
+
+        bool OwnsEverything(Rect hoardArea)
+        {
+            if (treasures.Count == 0) return false;
+            foreach (var t in treasures)
+                if (t.state != Treasure.State.InHoard || t.hoard != hoardArea) return false;
+            return true;
+        }
+
+        void EndMatch(string reason)
+        {
+            isOver = true;
+            resultReason = reason;
+            // Freeze the scores now. Anything still on a rope doesn't count.
+            finalYourScore = YourScore;
+            finalRivalScore = RivalScore;
+            result = finalYourScore > finalRivalScore ? "YOU WIN!"
+                   : finalYourScore < finalRivalScore ? "RIVAL WINS"
+                   : "DRAW";
+        }
+
+        // Starts a fresh match: new seed (unless a fixed seed is set), new treasure, reset lassos.
+        public void PlayAgain() => StartMatch(seed != 0 ? seed : Random.Range(1, int.MaxValue));
 
         // ----- Scores -----
         // A hoard's score = the value of everything sitting in it right now. Worked out fresh every time
