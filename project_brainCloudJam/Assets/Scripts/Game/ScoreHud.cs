@@ -63,7 +63,8 @@ namespace LootLasso
             DrawText($"YOU  {yourScore}", yourSpot, YourColor, style, Align.Center);
 
             // The rival's score: top-left of their hoard, starting at its left edge so it never runs off screen.
-            float topY = arena.rivalHoard.yMax - 0.45f;
+            // Art pixel row 22 from the top (22 / 23 = 0.96 units down): below the ~17 px where phone notches sit.
+            float topY = arena.rivalHoard.yMax - 0.96f;
             DrawText($"RIVAL  {rivalScore}", new Vector2(arena.rivalHoard.xMin + 0.25f, topY), RivalColor, style, Align.Left);
 
             // The timer: top-right, ending at the hoard's right edge. Red in the last 10 seconds.
