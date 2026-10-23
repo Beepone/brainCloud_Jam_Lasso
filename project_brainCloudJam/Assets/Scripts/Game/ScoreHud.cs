@@ -128,6 +128,7 @@ namespace LootLasso
             float by = panel.y + row * 4.4f, bh = row * 1.2f;
             if (menu != null)
             {
+                button.fontSize = Mathf.RoundToInt(size * 0.8f); // two buttons share the width: smaller text fits
                 if (GUI.Button(new Rect(panel.x + w * 0.06f, by, w * 0.42f, bh), "PLAY AGAIN", button)) menu.Play();
                 if (GUI.Button(new Rect(panel.x + w * 0.52f, by, w * 0.42f, bh), "MENU", button)) menu.BackToTitle();
             }
