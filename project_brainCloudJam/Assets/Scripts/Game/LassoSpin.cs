@@ -89,7 +89,6 @@ namespace LootLasso
         public string lastThrow;      // summary of the last throw
         public int caughtCount;       // how many treasures are on the rope right now
         public float caughtWeight;    // their total weight (heavier = slower pull)
-        public int hoardScore;        // total value delivered to your hoard (step 3 will show this properly)
 
         // ===== Private state =====
         // No "public" = private: hidden from the Inspector, only this script uses them.
@@ -456,11 +455,14 @@ namespace LootLasso
         void Deliver()
         {
             var arena = Arena.Current;
+            int gained = 0;
             foreach (var t in hooked)
             {
                 t.StoreIn(arena.yourHoard, arena);
-                hoardScore += t.value;
+                gained += t.value;
+                ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over each piece as it lands
             }
+            if (gained > 0) lastThrow += $" | +{gained}";
             hooked.Clear();
             hookedOffsets.Clear();
             caughtCount = 0;

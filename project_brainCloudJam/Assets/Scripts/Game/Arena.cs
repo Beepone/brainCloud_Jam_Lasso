@@ -117,6 +117,8 @@ namespace LootLasso
 
         void Start()
         {
+            // The score display: added here so the scene needs no extra setup.
+            if (GetComponent<ScoreHud>() == null) gameObject.AddComponent<ScoreHud>();
             DrawZones();
             StartMatch(seed != 0 ? seed : Random.Range(1, int.MaxValue));
         }
@@ -150,6 +152,20 @@ namespace LootLasso
             matchTime = MatchTime; // readout
             foreach (var t in treasures) t.UpdateWander(matchTime);
         }
+
+        // ----- Scores -----
+        // A hoard's score = the value of everything sitting in it right now. Worked out fresh every time
+        // (instead of keeping a running total), so a steal automatically lowers the hoard it came from.
+        public int Score(Rect hoardArea)
+        {
+            int total = 0;
+            foreach (var t in treasures)
+                if (t.state == Treasure.State.InHoard && t.hoard == hoardArea) total += t.value;
+            return total;
+        }
+
+        public int YourScore => Score(yourHoard);
+        public int RivalScore => Score(rivalHoard);
 
         // Draws the two hoard zones as faint rectangles (placeholders until the art arrives).
         void DrawZones()
