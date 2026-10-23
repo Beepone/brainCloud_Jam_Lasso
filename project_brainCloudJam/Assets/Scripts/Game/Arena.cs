@@ -80,11 +80,11 @@ namespace LootLasso
         [Tooltip("Same seed = same starting layout and same wandering every match. 0 = a new random seed each match.")]
         public int seed = 0;
 
-        [Header("Practice (until the bot exists)")]
-        [Tooltip("Start the rival's hoard with this many coins, so there's something to steal. Set to 0 once the bot plays.")]
-        public int practiceRivalCoins = 3;
+        [Header("Practice: start the rival hoard with treasure (for testing steals)")]
+        [Tooltip("Start the rival's hoard with this many coins, to test stealing. 0 for real matches (the bot fills its own hoard).")]
+        public int practiceRivalCoins = 0;
         [Tooltip("...and this many chests.")]
-        public int practiceRivalChests = 1;
+        public int practiceRivalChests = 0;
 
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
@@ -152,6 +152,7 @@ namespace LootLasso
             // Reset every lasso, in case one was mid-throw holding treasure we just destroyed.
             // FindObjectsByType finds every LassoSpin in the scene (yours, and later the bot's).
             foreach (var lasso in FindObjectsByType<LassoSpin>()) lasso.ResetLasso();
+            foreach (var bot in FindObjectsByType<LassoBot>()) bot.ResetBot();
 
             matchSeed = newSeed;
             matchStart = Time.realtimeSinceStartupAsDouble;

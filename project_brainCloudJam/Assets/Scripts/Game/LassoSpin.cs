@@ -130,10 +130,38 @@ namespace LootLasso
         float tightenStart, tightenTime;  // when tightening started, and how long it takes
         Vector3 loopSpinScale;   // the loop's size while spinning (from the scene)
 
+        // ===== The hand =====
+        // What the "hand" is doing this frame: pressed, let go, and where it is (world units).
+        // For you it comes from the mouse or a finger. For the bot it comes from LassoBot, which fakes a
+        // hand in code. Either way the lasso plays by exactly the same rules.
+        public struct Hand
+        {
+            public bool held;      // button / finger is down
+            public bool pressed;   // went down this frame
+            public bool released;  // came up this frame
+            public Vector2 worldPos;
+        }
+
+        LassoBot bot; // set if this lasso belongs to the bot (a LassoBot on the same object)
+
+        // For the bot: true when the lasso is free to start a new throw.
+        public bool IsIdle => phase == Phase.Idle;
+        // For the bot: where the spinning loop is around the character right now (degrees, 0 = right).
+        public float LoopAngle => loopAngle;
+
         // ===== Start =====
         // Unity calls Start once, before the first Update.
         void Start()
         {
+            bot = GetComponent<LassoBot>();
+
+            // No loop object dragged in (e.g. the bot's lasso): make a placeholder one.
+            if (loop == null)
+            {
+                var sr = PlaceholderArt.CreateSprite(name + " Loop", PlaceholderArt.Circle, new Color(1f, 0.6f, 0.75f), 6);
+                sr.transform.localScale = Vector3.one * 0.3f;
+                loop = sr.transform;
+            }
             loopSpinScale = loop.localScale;
 
             // The rope is drawn with the placeholder shapes from the old prototype
@@ -150,8 +178,24 @@ namespace LootLasso
         // Unity calls Update once every frame. It works out which phase we're in and runs that part.
         void Update()
         {
-            var pointer = Pointer.current; // the mouse on a computer, or the first finger on a phone
-            if (pointer == null) return;   // no mouse or touch at all, so do nothing
+            // Where does the hand come from this frame: the bot, or the mouse / finger?
+            Hand hand;
+            if (bot != null)
+            {
+                hand = bot.CurrentHand;
+            }
+            else
+            {
+                var pointer = Pointer.current; // the mouse on a computer, or the first finger on a phone
+                if (pointer == null) return;   // no mouse or touch at all, so do nothing
+                hand = new Hand
+                {
+                    held = pointer.press.isPressed,
+                    pressed = pointer.press.wasPressedThisFrame,
+                    released = pointer.press.wasReleasedThisFrame,
+                    worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue()),
+                };
+            }
 
             // Match over: freeze exactly as we are until Play Again (which calls ResetLasso).
             if (Arena.Current != null && Arena.Current.isOver) return;
@@ -162,11 +206,11 @@ namespace LootLasso
             switch (phase)
             {
                 case Phase.Idle:
-                    if (pointer.press.wasPressedThisFrame) StartWindUp();
+                    if (hand.pressed) StartWindUp();
                     break;
 
                 case Phase.WindUp:
-                    UpdateWindUp(pointer, playerPos);
+                    UpdateWindUp(hand, playerPos);
                     break;
 
                 case Phase.Flying:
@@ -229,13 +273,13 @@ namespace LootLasso
             loop.gameObject.SetActive(false); // appears when you start circling
         }
 
-        void UpdateWindUp(Pointer pointer, Vector2 playerPos)
+        void UpdateWindUp(Hand hand, Vector2 playerPos)
         {
             float dt = Time.deltaTime; // how long this frame took, in seconds
 
             // ----- Let go? -----
             // wasReleasedThisFrame is true only on the one frame you let go.
-            if (pointer.press.wasReleasedThisFrame)
+            if (hand.released)
             {
                 Release();
                 return;
@@ -244,7 +288,7 @@ namespace LootLasso
             // ----- 1. Where is your hand, relative to the character? -----
             // In world units, so the loop can sit exactly under your pointer. (The camera scales the world
             // to fit the screen, so this still feels the same on a phone and a big monitor.)
-            Vector2 worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue());
+            Vector2 worldPos = hand.worldPos;
             Vector2 fromPlayer = worldPos - playerPos;
             handDistance = fromPlayer.magnitude;
 

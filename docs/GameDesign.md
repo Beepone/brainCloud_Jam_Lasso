@@ -140,7 +140,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 - **What gets sent:** throws only (direction, distance, match time). Treasure movement is never sent.
 - **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs.
 - **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `matchEnd(scores)`, plus `ping` for latency.
-- **No opponent?** After about **15 s** of waiting, the match starts against a **bot**. The bot uses the same throws as a player (picks a target, adds aim error, throws on a timer), so it needs no special rules.
+- **No opponent?** After about **15 s** of waiting, the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
 - **Disconnects:** if the opponent leaves mid-match, a bot takes over or the match ends with a "win by forfeit".
 
 ---
@@ -228,12 +228,12 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 **Done so far:**
 - *Oct 16–20:* project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, the finished throw (milestone 1).
-- *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. **Milestone 2 is about half done:** still to do are the match timer and winner, and the bot.
+- *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. Then the match timer, winner panel and Play Again, and the **bot** (LassoBot: the same lasso driven by a fake hand). **Milestone 2 done, a day early.**
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
 | 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
-| 2 | **Solo match vs. bot** | ✅ Moving treasure, ✅ catching, ✅ hauling, ✅ hoards and scores, ✅ stealing, 2-minute timer, winner, bot. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
+| 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
 | 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
 | 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
