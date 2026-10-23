@@ -86,6 +86,14 @@ namespace LootLasso
         [Tooltip("...and this many chests.")]
         public int practiceRivalChests = 0;
 
+        [Header("Menus")]
+        [Tooltip("Show the title screen and menus. Off = jump straight into a match (handy for quick testing).")]
+        public bool showMenus = true;
+
+        // An "event" lets other scripts ask to be told when something happens. The menu uses this
+        // to save your score to the leaderboard. "System.Action" = a method with no inputs.
+        public event System.Action MatchEnded;
+
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
         public float matchLength = 120f;
@@ -94,7 +102,8 @@ namespace LootLasso
         public int matchSeed;
         public float matchTime;
         public float timeLeft;
-        public bool isOver;
+        public bool isPlaying;     // a match is running right now
+        public bool isOver;        // a match just ended (the result panel is showing)
         public string result;      // "YOU WIN!", "RIVAL WINS", "DRAW"
         public string resultReason; // why it ended
         public int finalYourScore, finalRivalScore; // scores frozen at the end
@@ -136,10 +145,13 @@ namespace LootLasso
 
         void Start()
         {
-            // The score display: added here so the scene needs no extra setup.
+            // The score display and the menus: added here so the scene needs no extra setup.
             if (GetComponent<ScoreHud>() == null) gameObject.AddComponent<ScoreHud>();
+            if (showMenus && GetComponent<MainMenu>() == null) gameObject.AddComponent<MainMenu>();
             DrawZones();
-            StartMatch(seed != 0 ? seed : Random.Range(1, int.MaxValue));
+
+            // With menus, the title screen starts the match (Play). Without, start right away.
+            if (!showMenus) PlayAgain();
         }
 
         // Clears the arena and spawns a fresh set of treasure. Online, both players will call this
@@ -156,6 +168,7 @@ namespace LootLasso
 
             matchSeed = newSeed;
             matchStart = Time.realtimeSinceStartupAsDouble;
+            isPlaying = true;
             isOver = false;
             result = resultReason = "";
             timeLeft = matchLength;
@@ -195,7 +208,7 @@ namespace LootLasso
 
         void Update()
         {
-            if (isOver) return; // match over: everything freezes until Play Again
+            if (!isPlaying) return; // no match running (title screen, or the result panel): everything stays still
 
             matchTime = MatchTime; // readout
             foreach (var t in treasures) t.UpdateWander(matchTime);
@@ -223,6 +236,7 @@ namespace LootLasso
 
         void EndMatch(string reason)
         {
+            isPlaying = false;
             isOver = true;
             resultReason = reason;
             // Freeze the scores now. Anything still on a rope doesn't count.
@@ -231,6 +245,20 @@ namespace LootLasso
             result = finalYourScore > finalRivalScore ? "YOU WIN!"
                    : finalYourScore < finalRivalScore ? "RIVAL WINS"
                    : "DRAW";
+
+            // Tell anyone listening (the menu saves the score). "?." = only if someone is listening.
+            MatchEnded?.Invoke();
+        }
+
+        // Back to the menus: clears the field and stops everything.
+        public void ClearArena()
+        {
+            foreach (var t in treasures) Destroy(t.gameObject);
+            treasures.Clear();
+            foreach (var lasso in FindObjectsByType<LassoSpin>()) lasso.ResetLasso();
+            foreach (var bot in FindObjectsByType<LassoBot>()) bot.ResetBot();
+            isPlaying = false;
+            isOver = false;
         }
 
         // Starts a fresh match: new seed (unless a fixed seed is set), new treasure, reset lassos.

@@ -44,6 +44,7 @@ namespace LootLasso
         {
             var arena = Arena.Current;
             if (arena == null) return;
+            if (!arena.isPlaying && !arena.isOver) return; // on the menus: no HUD
 
             int size = Mathf.RoundToInt(Screen.height * textSize);
             var style = new GUIStyle(GUI.skin.label)
@@ -92,7 +93,7 @@ namespace LootLasso
         // The end-of-match panel in the middle of the screen: who won, why, the scores, and Play Again.
         void DrawResultPanel(Arena arena, int size)
         {
-            float w = Screen.width * 0.8f, h = Screen.height * 0.3f;
+            float w = Screen.width * 0.8f, h = Screen.height * 0.36f;
             var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
 
             // A dark see-through box behind the text. GUI.color tints everything drawn after it.
@@ -107,15 +108,30 @@ namespace LootLasso
                                    : Color.white;
             line.normal.textColor = Color.white;
 
-            float row = h / 5f; // split the panel into 5 rows
+            float row = h / 6f; // split the panel into 6 rows
             GUI.Label(new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), arena.result, title);
             GUI.Label(new Rect(panel.x, panel.y + row * 1.6f, w, row), arena.resultReason, line);
             GUI.Label(new Rect(panel.x, panel.y + row * 2.4f, w, row), $"You {arena.finalYourScore}   -   Rival {arena.finalRivalScore}", line);
 
+            // What happened to the score on the leaderboard (from the menu, if there is one).
+            var menu = MainMenu.Current;
+            if (menu != null && !string.IsNullOrEmpty(menu.scoreStatus))
+            {
+                var small = new GUIStyle(line) { fontSize = Mathf.RoundToInt(size * 0.75f) };
+                small.normal.textColor = new Color(0.8f, 0.9f, 0.8f);
+                GUI.Label(new Rect(panel.x, panel.y + row * 3.2f, w, row), menu.scoreStatus, small);
+            }
+
             // GUI.Button draws a button and returns true on the frame it's clicked.
+            // With menus: PLAY AGAIN and MENU side by side. Without: just PLAY AGAIN.
             var button = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold };
-            var buttonRect = new Rect(panel.x + w * 0.25f, panel.y + row * 3.6f, w * 0.5f, row * 1.1f);
-            if (GUI.Button(buttonRect, "PLAY AGAIN", button)) arena.PlayAgain();
+            float by = panel.y + row * 4.4f, bh = row * 1.2f;
+            if (menu != null)
+            {
+                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, w * 0.42f, bh), "PLAY AGAIN", button)) menu.Play();
+                if (GUI.Button(new Rect(panel.x + w * 0.52f, by, w * 0.42f, bh), "MENU", button)) menu.BackToTitle();
+            }
+            else if (GUI.Button(new Rect(panel.x + w * 0.25f, by, w * 0.5f, bh), "PLAY AGAIN", button)) arena.PlayAgain();
         }
 
         enum Align { Left, Center, Right }

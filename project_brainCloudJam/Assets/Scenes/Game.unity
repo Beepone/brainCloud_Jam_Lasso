@@ -129,6 +129,8 @@ GameObject:
   m_Component:
   - component: {fileID: 221891041}
   - component: {fileID: 221891040}
+  - component: {fileID: 221891043}
+  - component: {fileID: 221891042}
   m_Layer: 0
   m_Name: Rival
   m_TagString: Untagged
@@ -211,6 +213,71 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &221891042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221891038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afcbd1900df038e4db86c19d9fb0e504, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LootLasso.LassoBot
+  minThinkTime: 0.6
+  maxThinkTime: 1.4
+  aimError: 8
+  distanceError: 0.12
+  stealPreference: 1.5
+  distanceDislike: 0.25
+  handRadius: 0.8
+  state: 
+  targetName: 
+  targetSpinSpeed: 0
+--- !u!114 &221891043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 221891038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f943866f5cf79af4183bb51af0785b79, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LootLasso.LassoSpin
+  loop: {fileID: 0}
+  side: 0
+  minOrbitRadius: 0.6
+  maxOrbitRadius: 1
+  catchRadius: 0.5
+  followStrength: 10
+  maxAcceleration: 900
+  slipAngle: 120
+  minSpinSpeed: 180
+  maxSpinSpeed: 1080
+  minRange: 1.5
+  maxRange: 12
+  distanceCurve: 2
+  minFlightSpeed: 8
+  maxFlightSpeed: 18
+  nearReturnSpeed: 10
+  farReturnSpeed: 4
+  minTightenTime: 0.15
+  maxTightenTime: 0.6
+  weightSlowdown: 0.1
+  bounceOffWalls: 1
+  bounceOffTopAndBottom: 0
+  maxBounces: 3
+  state: 
+  handDistance: 0
+  loopSpeed: 0
+  lag: 0
+  slipping: 0
+  lastThrow: 
+  caughtCount: 0
+  caughtWeight: 0
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -686,10 +753,17 @@ MonoBehaviour:
     color: {r: 0.3, g: 1, b: 0.6, a: 1}
     count: 2
   seed: 0
-  practiceRivalCoins: 3
-  practiceRivalChests: 1
+  practiceRivalCoins: 0
+  practiceRivalChests: 0
+  matchLength: 120
   matchSeed: 0
   matchTime: 0
+  timeLeft: 0
+  isOver: 0
+  result: 
+  resultReason: 
+  finalYourScore: 0
+  finalRivalScore: 0
 --- !u!4 &1394062267
 Transform:
   m_ObjectHideFlags: 0

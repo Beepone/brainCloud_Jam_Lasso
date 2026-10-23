@@ -78,7 +78,7 @@ namespace LootLasso
         void Update()
         {
             var arena = Arena.Current;
-            if (arena == null || arena.isOver) { CurrentHand = default; return; }
+            if (arena == null || !arena.isPlaying) { CurrentHand = default; return; }
 
             Vector2 me = transform.position;
             bool held = false, pressed = false, released = false;

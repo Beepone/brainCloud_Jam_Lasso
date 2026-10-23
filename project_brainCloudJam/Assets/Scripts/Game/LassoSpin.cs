@@ -197,8 +197,8 @@ namespace LootLasso
                 };
             }
 
-            // Match over: freeze exactly as we are until Play Again (which calls ResetLasso).
-            if (Arena.Current != null && Arena.Current.isOver) return;
+            // No match running (menus, or the match just ended): freeze exactly as we are.
+            if (Arena.Current != null && !Arena.Current.isPlaying) return;
 
             Vector2 playerPos = transform.position;
 
