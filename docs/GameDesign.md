@@ -151,7 +151,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 |---|---|---|
 | **Authentication** | Anonymous login plus a display name | ✅ working |
 | **RTT + Lobbies** | Matchmaking and in-match messages (lobby signals) | ✅ prototyped |
-| **Leaderboards** | **Total treasure ever** caught (bot and online matches both count), shown on the title screen | ✅ prototyped (`Highscores`) |
+| **Leaderboards** | **Total treasure ever** (cumulative leaderboard `TotalTreasure`; every match's final score is added), top 10 on the Leaderboard screen | ✅ working |
 | Player statistics | Lifetime catches / steals / perfect throws on the results screen | Could have |
 
 ---
@@ -229,6 +229,7 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 **Done so far:**
 - *Oct 16–20:* project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, the finished throw (milestone 1).
 - *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. Then the match timer, winner panel and Play Again, and the **bot** (LassoBot: the same lasso driven by a fake hand). **Milestone 2 done, a day early.**
+- *Oct 23:* **milestone 5 done** (done before 3 and 4): title, first-launch name entry, How to Play, and a leaderboard of total treasure ever (brainCloud cumulative leaderboard `TotalTreasure`).
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
@@ -236,7 +237,7 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 | 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
 | 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
-| 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
+| 5 | ✅ **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
 | — | **🔒 Feature freeze** | Evening of **Mon Oct 27**: after this, only bugs, tuning and polish | | |
 | 6 | **Polish and sound** | Joey's SFX and music, juice (shake, particles), How to Play | Tue Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
 | 7 | **Ship** | itch.io page done, final build tested on desktop and phone, **submitted** | **Evening of Wed Oct 29** | Final check of the page |
