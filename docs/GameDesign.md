@@ -91,9 +91,23 @@ Treasure is **anthropomorphised**: little characters that wander the field. More
 
 ## 5. Hoards and stealing
 
-- Each player has a **hoard zone** on their side of the field. Delivered treasure sits there and counts toward their score.
-- A lasso landing on the **rival's hoard** catches treasure out of it: a **steal**.
+- Each player has a **hoard zone** behind them. Delivered treasure sits there and counts toward their score.
+- **Score = the value of what's in your hoard right now** (not a running total), so being stolen from lowers it. Shown as YOU (under your hoard) and RIVAL (in their hoard), with a +value popup as each piece lands.
+- A lasso landing on the **rival's hoard** catches treasure out of it: a **steal** (pink STOLEN! popup). You can never catch from your own hoard.
 - Where caught treasure is placed in a hoard comes from the shared seed, so steal throws line up on both screens.
+- The rival's hoard is at the far end, so a steal needs a near-top-speed spin and takes ~2.5 s to haul back: a real risk while your own hoard is open.
+
+### Arena layout (world is symmetric)
+The world mirrors top-to-bottom around the middle of the field, so both players have identical hoards (online, steals land the same on both screens). Each player sees themselves at the bottom.
+
+| Zone | Map pixel rows (180×320) | World y |
+|---|---|---|
+| Rival hoard | 0–36 | 5.391 to 6.957 |
+| Rival spin room (rival stands at its top edge) | 36–60 | 4.348 to 5.391 |
+| Field (columns 8–172) | 60–224 | −2.783 to 4.348 |
+| Your spin room | 224–248 | −3.826 to −2.783 |
+| Your hoard (you stand at its top edge) | 248–284 | −5.391 to −3.826 |
+| Spare strip (score display) | 284–320 | −6.957 to −5.391 |
 
 **Could have:** a short "guard" window after delivering, or hoard defenses as power-ups.
 
@@ -156,10 +170,12 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 
 ## 10. Art list
 
-**Style:** TBD at the kickoff meeting. Decide **pixel art vs. hand-drawn**, **pixels per unit**, and a **palette** before drawing final assets.
-**Screen:** **portrait 9:16**, top-down. Rival's hoard at the top, yours at the bottom, field in the middle.
-**Resolution:** design and lay out for a **1080×1920** reference screen, and draw art large enough to stay sharp on a phone. The itch.io embed is **450×800** with a fullscreen button.
-**UI:** every button at least **~120 px tall at 1080 wide** (finger-sized), and nothing important in the top ~100 px or bottom ~80 px, where phone notches and home bars sit.
+**Style:** **pixel art**. The palette is still to be chosen by the artists.
+**Screen:** **portrait 9:16**, top-down, **180 × 320 art pixels**. Rival's hoard at the top, yours at the bottom, field in the middle.
+**Pixel scale:** **23 pixels per world unit**. The camera is a **Pixel Perfect Camera** (reference 180 × 320, 23 PPU, Upscale Render Texture), so the whole game renders at 180 × 320 and is scaled up in whole steps: on a 1080 × 1920 phone each art pixel is 6 × 6 screen pixels. Sprites import with Pixels Per Unit 23, Filter Mode Point, Compression None.
+**Templates:** `docs/art/MapTemplate.md` and `docs/art/CharacterTemplates.md`, with guide PNGs in `docs/art/templates/`.
+**itch.io embed:** **540 × 960** (3×) with a fullscreen button. Whole-number multiples of 180 × 320 keep the pixels even.
+**UI:** every button at least **~20 art px tall** (finger-sized), and nothing important in the top ~17 or bottom ~13 art px, where phone notches and home bars sit.
 **Delivery:** PNG (or `.aseprite` / `.psd` sources), committed under `project_brainCloudJam/Assets/Art/<Category>/`. Name files like `Treasure_Coin_Run.png`. Big files go through Git LFS automatically.
 **Pack-ready:** the art is also meant for a sellable asset pack (section 16). Keep layered source files, stick to one palette and pixels-per-unit, and only use your own work, or note anything else in `docs/Credits.md`.
 
@@ -210,12 +226,14 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 *Re-planned Oct 20.* Work and other commitments made the first days short, and available hours vary a lot, so the plan is **milestones in priority order** instead of a fixed day-by-day schedule. Work down the list; wherever we are at the deadline, it's the most complete game possible. Claude writes most of the code (fully commented), and Joey designs, plays, tunes and reviews it.
 
-**Done so far (Oct 16–20):** project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, first steps of the rebuilt throw (`LassoSpin.cs`).
+**Done so far:**
+- *Oct 16–20:* project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, the finished throw (milestone 1).
+- *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. **Milestone 2 is about half done:** still to do are the match timer and winner, and the bot.
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
 | 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
-| 2 | **Solo match vs. bot** | Moving treasure, catching, hauling, hoards, stealing, 2-minute timer, winner. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
+| 2 | **Solo match vs. bot** | ✅ Moving treasure, ✅ catching, ✅ hauling, ✅ hoards and scores, ✅ stealing, 2-minute timer, winner, bot. **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
 | 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
 | 5 | **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |

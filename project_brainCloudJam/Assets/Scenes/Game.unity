@@ -205,7 +205,7 @@ Transform:
   m_GameObject: {fileID: 221891038}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 5.38, z: 0}
+  m_LocalPosition: {x: 0, y: 5.391, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -223,6 +223,7 @@ GameObject:
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
   - component: {fileID: 519420030}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -317,7 +318,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 7
+  orthographic size: 6.9565215
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -348,6 +349,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c88f5cead0c0b2a4eb05b5900433f8d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.2D.Runtime::UnityEngine.Rendering.Universal.PixelPerfectCamera
+  m_ComponentVersion: 1
+  m_AssetsPPU: 23
+  m_RefResolutionX: 180
+  m_RefResolutionY: 320
+  m_CropFrame: 0
+  m_GridSnapping: 2
+  m_FilterMode: 0
+  m_UpscaleRT: 0
+  m_PixelSnapping: 0
+  m_CropFrameX: 0
+  m_CropFrameY: 0
+  m_StretchFill: 0
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -539,7 +564,7 @@ Transform:
   m_GameObject: {fileID: 994427425}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -4, z: 0}
+  m_LocalPosition: {x: 0, y: -3.826, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -558,10 +583,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LassoSpin
   loop: {fileID: 2096938726}
-  showAimLine: 1
+  side: 0
   minOrbitRadius: 0.8
   maxOrbitRadius: 2
-  catchToOrbit: 0.5
+  catchRadius: 0.75
   followStrength: 20
   maxAcceleration: 900
   slipAngle: 120
@@ -570,14 +595,13 @@ MonoBehaviour:
   minRange: 1.5
   maxRange: 12
   distanceCurve: 2
-  smallLoopStrength: 9
-  bigLoopStrength: 4
   minFlightSpeed: 8
   maxFlightSpeed: 18
   nearReturnSpeed: 10
   farReturnSpeed: 2
   minTightenTime: 0.15
   maxTightenTime: 0.6
+  weightSlowdown: 0.1
   bounceOffWalls: 1
   bounceOffTopAndBottom: 0
   maxBounces: 3
@@ -586,9 +610,9 @@ MonoBehaviour:
   loopSpeed: 0
   lag: 0
   slipping: 0
-  catchRadius: 1
-  ropeStrength: 0
   lastThrow: 
+  caughtCount: 0
+  caughtWeight: 0
 --- !u!1 &1394062265
 GameObject:
   m_ObjectHideFlags: 0
@@ -620,22 +644,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LootLasso.Arena
   field:
     serializedVersion: 2
-    x: -3.6
-    y: -2.92
-    width: 7.2
-    height: 7.22
+    x: -3.5652
+    y: -2.7826
+    width: 7.1304
+    height: 7.1304
   yourHoard:
     serializedVersion: 2
-    x: -3.9
-    y: -5.6
-    width: 7.8
-    height: 1.6
+    x: -3.913
+    y: -5.3913
+    width: 7.8261
+    height: 1.5652
   rivalHoard:
     serializedVersion: 2
-    x: -3.9
-    y: 5.3799996
-    width: 7.8
-    height: 1.6
+    x: -3.913
+    y: 5.3913007
+    width: 7.8261
+    height: 1.5652
   kinds:
   - name: Coin
     value: 1
@@ -662,6 +686,8 @@ MonoBehaviour:
     color: {r: 0.3, g: 1, b: 0.6, a: 1}
     count: 2
   seed: 0
+  practiceRivalCoins: 3
+  practiceRivalChests: 1
   matchSeed: 0
   matchTime: 0
 --- !u!4 &1394062267
