@@ -144,6 +144,40 @@ namespace LootLasso
 
         LassoBot bot; // set if this lasso belongs to the bot (a LassoBot on the same object)
 
+        // Who drives this lasso:
+        //   Pointer  you, with the mouse or a finger
+        //   Bot      the LassoBot on the same object
+        //   Remote   the other player in an online match: their throws arrive over the network (RemoteThrow)
+        public enum Control { Pointer, Bot, Remote }
+        [Tooltip("Set automatically: Bot if there's an enabled LassoBot, otherwise Pointer. Online matches set Remote.")]
+        public Control control = Control.Pointer;
+
+        [Tooltip("On: this game decides what the lasso catches. Off (online guest): wait for the host's decision.")]
+        public bool decideCatches = true;
+
+        // Everything needed to replay a throw on another computer.
+        // [System.Serializable] lets it be turned into text to send.
+        [System.Serializable]
+        public struct ThrowInfo
+        {
+            public int id;            // this lasso's throw number (1, 2, 3...), to match up the catch decision
+            public Vector2 start;     // where the loop was when it was let go
+            public Vector2 direction; // which way it flew
+            public float distance;    // how far (bounces included)
+            public float speed;       // flight speed
+            public float launchTime;  // match time when it was let go
+        }
+
+        // Events other scripts can listen to (NetMatch uses them to send things over the network).
+        public event System.Action<LassoSpin, ThrowInfo> Thrown;            // this lasso was thrown by its local player
+        public event System.Action<LassoSpin, int, List<int>> CatchDecided; // this game decided what a throw caught
+
+        int throwCounter;     // counts our own throws
+        int currentThrowId;   // the throw in the air (ours, or the remote player's)
+        bool awaitingVerdict; // landed, waiting for the host to say what it caught
+        int pendingVerdictId = -1;          // a decision that arrived before the loop landed
+        List<int> pendingVerdict;
+
         // For the bot: true when the lasso is free to start a new throw.
         public bool IsIdle => phase == Phase.Idle;
         // For the bot: where the spinning loop is around the character right now (degrees, 0 = right).
@@ -154,6 +188,7 @@ namespace LootLasso
         void Start()
         {
             bot = GetComponent<LassoBot>();
+            if (bot != null && bot.enabled) control = Control.Bot;
 
             // No loop object dragged in (e.g. the bot's lasso): make a placeholder one.
             if (loop == null)
@@ -178,16 +213,15 @@ namespace LootLasso
         // Unity calls Update once every frame. It works out which phase we're in and runs that part.
         void Update()
         {
-            // Where does the hand come from this frame: the bot, or the mouse / finger?
-            Hand hand;
-            if (bot != null)
+            // Where does the hand come from this frame: the bot, the mouse / finger, or nowhere (remote)?
+            Hand hand = default; // "default" = not touching
+            if (control == Control.Bot && bot != null)
             {
                 hand = bot.CurrentHand;
             }
-            else
+            else if (control == Control.Pointer && Pointer.current != null)
             {
                 var pointer = Pointer.current; // the mouse on a computer, or the first finger on a phone
-                if (pointer == null) return;   // no mouse or touch at all, so do nothing
                 hand = new Hand
                 {
                     held = pointer.press.isPressed,
@@ -196,6 +230,7 @@ namespace LootLasso
                     worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue()),
                 };
             }
+            // (Remote: no hand. Its throws arrive through RemoteThrow.)
 
             // No match running (menus, or the match just ended): freeze exactly as we are.
             if (Arena.Current != null && !Arena.Current.isPlaying) return;
@@ -365,15 +400,30 @@ namespace LootLasso
             loop.localScale = Vector3.one * catchRadius * 2f; // the loop opens up to its catch size
             phase = Phase.Flying;
 
+            // Tell anyone listening (online: NetMatch sends it to the other player).
+            throwCounter++;
+            currentThrowId = throwCounter;
+            ResetVerdict();
+            Thrown?.Invoke(this, new ThrowInfo
+            {
+                id = currentThrowId,
+                start = loop.position,
+                direction = SwingDirection(),
+                distance = distance,
+                speed = flightSpeed,
+                launchTime = Arena.Current != null ? Arena.Current.MatchTime : 0f,
+            });
+
             int bounces = flightPath.Count - 1;
             lastThrow = $"spin {Mathf.Abs(loopSpeed) / 360f:0.0} circles/s -> distance {distance:0.0}, {bounces} bounce(s)";
         }
 
         // Flies the loop along flightPath, one corner at a time.
-        void UpdateFlight()
-        {
-            float step = flightSpeed * Time.deltaTime; // how far the loop may move this frame
+        void UpdateFlight() => AdvanceFlight(flightSpeed * Time.deltaTime);
 
+        // Moves the loop "step" units further along its path (one frame, or a catch-up jump for a remote throw).
+        void AdvanceFlight(float step)
+        {
             // "while" because on a fast frame the loop might pass a bounce point and keep going.
             while (step > 0f && flightPoint < flightPath.Count)
             {
@@ -399,17 +449,99 @@ namespace LootLasso
             // Past the last corner = landed: catch what's inside, then tighten the rope.
             if (flightPoint >= flightPath.Count)
             {
-                Catch();
-                StartTightening();
+                if (decideCatches)
+                {
+                    // We decide (solo, or the online host): catch now, and tell anyone listening.
+                    var caught = Catch();
+                    CatchDecided?.Invoke(this, currentThrowId, caught);
+                }
+                else if (pendingVerdictId == currentThrowId && pendingVerdict != null)
+                {
+                    ApplyCatch(pendingVerdict); // the host's decision already arrived
+                    ResetVerdict();
+                }
+                else
+                {
+                    awaitingVerdict = true; // online guest: the host's decision is on its way
+                }
+                StartTightening(); // the rope tightens either way, which hides the wait
             }
+        }
+
+        // ===== Online: the other player's throws, and the host's catch decisions =====
+
+        // Replays a throw that came over the network, from where and when it was thrown. If the message
+        // arrived late, the loop is moved along by however far it would already have flown.
+        public void RemoteThrow(ThrowInfo info)
+        {
+            // Still finishing their previous throw here (timing differs slightly between computers):
+            // finish it immediately.
+            if (phase != Phase.Idle) { Deliver(); EndThrow(); }
+
+            currentThrowId = info.id;
+            ResetVerdict();
+            flightSpeed = info.speed;
+            TracePath(info.start, info.direction, info.distance, flightPath);
+            flightPoint = 0;
+
+            loop.gameObject.SetActive(true);
+            loop.localScale = Vector3.one * catchRadius * 2f;
+            loop.position = info.start;
+            phase = Phase.Flying;
+
+            float late = Arena.Current != null ? Arena.Current.MatchTime - info.launchTime : 0f;
+            if (late > 0f) AdvanceFlight(late * flightSpeed);
+            lastThrow = $"remote throw {info.id}, {late * 1000f:0} ms late";
+        }
+
+        // The host says what throw "throwId" caught (the treasure ids).
+        public void ReceiveCatchDecision(int throwId, List<int> ids)
+        {
+            if (throwId != currentThrowId) return; // about an older throw: ignore
+            if (awaitingVerdict)
+            {
+                ApplyCatch(ids); // landed and waiting: apply now
+                ResetVerdict();
+            }
+            else
+            {
+                pendingVerdictId = throwId; // still in the air: apply when it lands
+                pendingVerdict = ids;
+            }
+        }
+
+        void ResetVerdict()
+        {
+            awaitingVerdict = false;
+            pendingVerdictId = -1;
+            pendingVerdict = null;
+        }
+
+        // Hooks the treasure with these ids onto this rope (the host's decision).
+        void ApplyCatch(List<int> ids)
+        {
+            var arena = Arena.Current;
+            if (arena == null) return;
+            var list = new List<Treasure>();
+            foreach (var t in arena.treasures)
+                if (ids.Contains(t.id)) list.Add(t);
+            HookAll(list);
         }
 
         // ===== Wall bounces =====
 
-        // The area the loop can fly in: what the camera sees, shrunk by the catch radius so the whole
-        // loop stays on screen. orthographicSize = half the visible height; aspect = width / height.
+        // The area the loop can fly in, shrunk by the catch radius so the whole loop stays inside.
+        // With an Arena: from the bottom of your hoard to the top of the rival's, edge to edge. That's the
+        // same on both players' computers (online), so a throw traces exactly the same path everywhere.
+        // Without one: what the camera sees. orthographicSize = half the visible height; aspect = width / height.
         Rect PlayArea()
         {
+            var arena = Arena.Current;
+            if (arena != null)
+            {
+                Rect a = Rect.MinMaxRect(arena.yourHoard.xMin, arena.yourHoard.yMin, arena.yourHoard.xMax, arena.rivalHoard.yMax);
+                return Rect.MinMaxRect(a.xMin + catchRadius, a.yMin + catchRadius, a.xMax - catchRadius, a.yMax - catchRadius);
+            }
             var cam = Camera.main;
             float halfHeight = cam.orthographicSize - catchRadius;
             float halfWidth = cam.orthographicSize * cam.aspect - catchRadius;
@@ -467,6 +599,7 @@ namespace LootLasso
             caughtWeight = 0f;
             loopSpeed = 0f;
             lastThrow = "";
+            ResetVerdict();
             EndThrow();
         }
 
@@ -479,20 +612,16 @@ namespace LootLasso
 
         // ===== Catching and hauling =====
 
-        // The loop just landed: everything free inside it is caught.
-        void Catch()
+        // The loop just landed: everything free inside it is caught. Returns the caught treasures' ids.
+        List<int> Catch()
         {
-            hooked.Clear();
-            hookedOffsets.Clear();
-            caughtWeight = 0f;
-            caughtCount = 0;
-
+            var ids = new List<int>();
             var arena = Arena.Current;
-            if (arena == null) return; // no arena in the scene: just a practice throw
+            if (arena == null) { HookAll(new List<Treasure>()); return ids; } // no arena: just a practice throw
 
             Vector2 landing = loop.position;
             Rect home = HomeHoard;
-            int stolenValue = 0;
+            var found = new List<Treasure>();
             foreach (var t in arena.treasures)
             {
                 if (Vector2.Distance(t.transform.position, landing) > catchRadius) continue; // outside the loop
@@ -504,10 +633,33 @@ namespace LootLasso
                 bool steal = t.state == Treasure.State.InHoard && t.hoard != home;
                 if (!loose && !steal) continue;
 
-                if (steal) stolenValue += t.value;
-                t.Hook();
+                found.Add(t);
+                ids.Add(t.id);
+            }
+            HookAll(found);
+            return ids;
+        }
+
+        // Puts these treasures on this rope (from our own Catch, or the host's decision).
+        void HookAll(List<Treasure> found)
+        {
+            hooked.Clear();
+            hookedOffsets.Clear();
+            caughtWeight = 0f;
+
+            Vector2 landing = loop.position;
+            Rect home = HomeHoard;
+            int stolenValue = 0;
+            foreach (var t in found)
+            {
+                if (t.state == Treasure.State.InHoard && t.hoard != home) stolenValue += t.value;
+                // On someone else's rope already (a close call decided by the host): take it off theirs.
+                if (t.hookedBy != null && t.hookedBy != this) t.hookedBy.Unhook(t);
+
+                t.Hook(this);
                 hooked.Add(t);
-                hookedOffsets.Add((Vector2)t.transform.position - landing); // where it sits inside the loop
+                // Where it sits inside the loop (kept within the loop, in case the decision arrived late).
+                hookedOffsets.Add(Vector2.ClampMagnitude((Vector2)t.transform.position - landing, catchRadius));
                 caughtWeight += t.weight;
             }
 
@@ -520,6 +672,17 @@ namespace LootLasso
                 lastThrow += $" | STOLE {stolenValue}!";
                 ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f)); // pink, right where it landed
             }
+        }
+
+        // Takes a treasure off this rope (the host gave it to the other player).
+        public void Unhook(Treasure t)
+        {
+            int i = hooked.IndexOf(t);
+            if (i < 0) return;
+            hooked.RemoveAt(i);
+            hookedOffsets.RemoveAt(i);
+            caughtWeight -= t.weight;
+            caughtCount = hooked.Count;
         }
 
         // Every frame of the pull: the caught treasure rides along with the loop, bunching up as it's dragged.

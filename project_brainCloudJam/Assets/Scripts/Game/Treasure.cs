@@ -30,15 +30,21 @@ namespace LootLasso
 
         // ----- Being caught, dropped and stored -----
 
+        // Which lasso has it on its rope right now (null if none). [System.NonSerialized] = not saved or
+        // shown in the Inspector; it only matters while the game runs.
+        [System.NonSerialized] public LassoSpin hookedBy;
+
         // Caught by a lasso: stop wandering. The lasso moves it from now on.
-        public void Hook()
+        public void Hook(LassoSpin by)
         {
             state = State.Hooked;
+            hookedBy = by;
         }
 
         // Dropped (the rope snapped): start wandering again from wherever it fell.
         public void Drop(Arena arena)
         {
+            hookedBy = null;
             StartWander(arena.matchSeed, arena.field, arena.MatchTime);
         }
 
@@ -46,6 +52,7 @@ namespace LootLasso
         // put it in exactly the same place (which matters when someone tries to steal it).
         public void StoreIn(Rect hoardArea, Arena arena)
         {
+            hookedBy = null;
             state = State.InHoard;
             hoard = hoardArea;
             var rng = new Prng(arena.matchSeed * 31 + id * 977 + timesStored * 7919);

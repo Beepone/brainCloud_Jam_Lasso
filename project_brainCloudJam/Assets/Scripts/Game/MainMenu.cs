@@ -6,7 +6,8 @@ namespace LootLasso
     // MainMenu: the screens around the match, and the brainCloud side of things.
     //
     //   NAME ENTRY    first launch only: pick a display name (saved on this device and in brainCloud)
-    //   TITLE         Play, Leaderboard, How to Play, and your name
+    //   TITLE         Play (online), Practice (vs the bot), Leaderboard, How to Play, and your name
+    //   SEARCHING     looking for an online rival (see NetMatch); gives up and plays the bot after a while
     //   LEADERBOARD   the top 10 by total treasure ever (from brainCloud)
     //   HOW TO PLAY   a short card explaining the throw
     //
@@ -30,10 +31,12 @@ namespace LootLasso
         public string onlineStatus = "Connecting...";
         public string scoreStatus;   // what happened to the last match's score (shown on the result panel)
 
-        enum Screen { NameEntry, Title, Leaderboard, HowToPlay }
+        enum Screen { NameEntry, Title, Searching, Leaderboard, HowToPlay }
         Screen current = Screen.Title;
 
         Arena arena;
+        NetMatch net;
+        bool practice; // was the last match vs the bot by choice? (PLAY AGAIN repeats the same kind)
         bool loggedIn;
         string nameInput = "";
 
@@ -53,6 +56,11 @@ namespace LootLasso
             arena = GetComponent<Arena>();
             arena.MatchEnded += OnMatchEnded; // "+=" subscribes: call OnMatchEnded whenever a match ends
 
+            // Online matchmaking lives on the same object. When it gives up, play the bot instead.
+            net = GetComponent<NetMatch>();
+            if (net == null) net = gameObject.AddComponent<NetMatch>();
+            net.SearchFailed += OnSearchFailed;
+
             playerName = PlayerPrefs.GetString(NameKey, "");
             current = string.IsNullOrEmpty(playerName) ? Screen.NameEntry : Screen.Title;
 
@@ -62,6 +70,7 @@ namespace LootLasso
         void OnDestroy()
         {
             if (arena != null) arena.MatchEnded -= OnMatchEnded; // "-=" unsubscribes (tidy up)
+            if (net != null) net.SearchFailed -= OnSearchFailed;
         }
 
         // ===== brainCloud =====
@@ -86,7 +95,7 @@ namespace LootLasso
 
         void OnMatchEnded()
         {
-            int score = arena.finalYourScore;
+            int score = arena.FinalLocalScore; // yours, whichever side you played
             if (!loggedIn) { scoreStatus = "Offline: score not saved"; return; }
             if (score <= 0) { scoreStatus = ""; return; }
 
@@ -110,16 +119,52 @@ namespace LootLasso
 
         // ===== Navigation (also used by the result panel) =====
 
+        // PLAY: look for an online rival (NetMatch). The match starts by itself when one is found.
         public void Play()
         {
+            practice = false;
             scoreStatus = "";
-            arena.PlayAgain();
+            net.Leave();        // leave any previous online match, back to the normal setup
+            arena.ClearArena();
+            current = Screen.Searching;
+            net.FindMatch();
+        }
+
+        // PRACTICE: straight into a match against the bot.
+        public void Practice()
+        {
+            practice = true;
+            StartBotMatch();
+        }
+
+        // The result panel's PLAY AGAIN: the same kind of match as last time.
+        public void PlayAgain()
+        {
+            if (practice) Practice();
+            else Play();
         }
 
         public void BackToTitle()
         {
+            net.Leave();
             arena.ClearArena();
             current = Screen.Title;
+        }
+
+        void StartBotMatch()
+        {
+            scoreStatus = "";
+            net.SetUpSolo();
+            arena.PlayAgain();
+        }
+
+        // Matchmaking gave up (no rival in time, or offline): play the bot, and say why.
+        void OnSearchFailed(string why)
+        {
+            if (current != Screen.Searching) return; // already cancelled
+            current = Screen.Title;                  // (shown again after the match)
+            StartBotMatch();
+            ScoreHud.ShowPopup(why, new Vector2(0f, arena.MirrorLineY), Color.white);
         }
 
         // ===== Drawing =====
@@ -139,6 +184,7 @@ namespace LootLasso
             {
                 case Screen.NameEntry: DrawNameEntry(size); break;
                 case Screen.Title: DrawTitle(size); break;
+                case Screen.Searching: DrawSearching(size); break;
                 case Screen.Leaderboard: DrawLeaderboard(size); break;
                 case Screen.HowToPlay: DrawHowToPlay(size); break;
             }
@@ -155,11 +201,24 @@ namespace LootLasso
             Label($"Hi, {playerName}", 0.27f, size, Color.white);
             if (SmallButton("change name", 0.32f, size)) { nameInput = playerName; current = Screen.NameEntry; }
 
-            if (Button("PLAY", 0.44f, size)) Play();
-            if (Button("LEADERBOARD", 0.55f, size)) OpenLeaderboard();
-            if (Button("HOW TO PLAY", 0.66f, size)) current = Screen.HowToPlay;
+            if (Button("PLAY ONLINE", 0.42f, size)) Play();
+            if (Button("PRACTICE", 0.52f, size)) Practice();
+            if (Button("LEADERBOARD", 0.62f, size)) OpenLeaderboard();
+            if (Button("HOW TO PLAY", 0.72f, size)) current = Screen.HowToPlay;
 
             Label(onlineStatus, 0.9f, size * 0.7f, loggedIn ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.7f, 0.5f));
+        }
+
+        void DrawSearching(int size)
+        {
+            Label(net.status, 0.4f, size * 1.2f, Color.white, bold: true);
+            // CeilToInt: counts 15, 14, ... 1 (never shows 0 while still looking).
+            Label($"Playing the bot in {Mathf.CeilToInt(net.SearchTimeLeft)}...", 0.47f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
+            if (Button("CANCEL", 0.6f, size))
+            {
+                net.Cancel();
+                current = Screen.Title;
+            }
         }
 
         void DrawNameEntry(int size)

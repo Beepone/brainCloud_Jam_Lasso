@@ -98,6 +98,12 @@ namespace LootLasso
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
         public float matchLength = 120f;
 
+        // Online, each computer plays a different side of the same world. The host plays the bottom (You),
+        // the guest plays the top (Rival) with its camera turned around. "Local" = the player at THIS computer.
+        [HideInInspector] public LassoSpin.Side localSide = LassoSpin.Side.You;
+        // Online guest: only the host decides an early win (someone owns everything) and the final scores.
+        [HideInInspector] public bool decidesEnd = true;
+
         [Header("Readouts")]
         public int matchSeed;
         public float matchTime;
@@ -106,7 +112,15 @@ namespace LootLasso
         public bool isOver;        // a match just ended (the result panel is showing)
         public string result;      // "YOU WIN!", "RIVAL WINS", "DRAW"
         public string resultReason; // why it ended
-        public int finalYourScore, finalRivalScore; // scores frozen at the end
+        public int finalYourScore, finalRivalScore; // scores frozen at the end (world sides: bottom, top)
+
+        // ----- From the local player's point of view (what the HUD and results show) -----
+        public Rect LocalHoard => localSide == LassoSpin.Side.You ? yourHoard : rivalHoard;
+        public Rect OpponentHoard => localSide == LassoSpin.Side.You ? rivalHoard : yourHoard;
+        public int LocalScore => Score(LocalHoard);
+        public int OpponentScore => Score(OpponentHoard);
+        public int FinalLocalScore => localSide == LassoSpin.Side.You ? finalYourScore : finalRivalScore;
+        public int FinalOpponentScore => localSide == LassoSpin.Side.You ? finalRivalScore : finalYourScore;
 
         // Every treasure in the arena. Other scripts (the lasso) look through this to see what they caught.
         public readonly List<Treasure> treasures = new List<Treasure>();
@@ -154,9 +168,11 @@ namespace LootLasso
             if (!showMenus) PlayAgain();
         }
 
-        // Clears the arena and spawns a fresh set of treasure. Online, both players will call this
-        // with the same seed, so they get identical treasure.
-        public void StartMatch(int newSeed)
+        // Clears the arena and spawns a fresh set of treasure. Online, both players call this with the same
+        // seed, so they get identical treasure. alreadyElapsed: how far into the match we already are (the
+        // online guest passes the time the start message took to arrive, so both clocks line up).
+        // "float alreadyElapsed = 0f" is an optional parameter: leave it out and it's 0.
+        public void StartMatch(int newSeed, float alreadyElapsed = 0f)
         {
             foreach (var t in treasures) Destroy(t.gameObject);
             treasures.Clear();
@@ -167,7 +183,7 @@ namespace LootLasso
             foreach (var bot in FindObjectsByType<LassoBot>()) bot.ResetBot();
 
             matchSeed = newSeed;
-            matchStart = Time.realtimeSinceStartupAsDouble;
+            matchStart = Time.realtimeSinceStartupAsDouble - alreadyElapsed;
             isPlaying = true;
             isOver = false;
             result = resultReason = "";
@@ -222,9 +238,15 @@ namespace LootLasso
             }
 
             // Someone owns everything: every treasure is in the same hoard (none loose or on a rope).
-            if (OwnsEverything(yourHoard)) EndMatch("You took every treasure!");
-            else if (OwnsEverything(rivalHoard)) EndMatch("The rival took every treasure!");
+            // Online, only the host checks this (and tells the guest), so both agree.
+            if (!decidesEnd) return;
+            if (OwnsEverything(yourHoard)) EndMatch(OwnerText(LassoSpin.Side.You));
+            else if (OwnsEverything(rivalHoard)) EndMatch(OwnerText(LassoSpin.Side.Rival));
         }
+
+        // "You took every treasure!" or "The rival took every treasure!", depending on who's looking.
+        public string OwnerText(LassoSpin.Side owner) =>
+            owner == localSide ? "You took every treasure!" : "The rival took every treasure!";
 
         bool OwnsEverything(Rect hoardArea)
         {
@@ -234,20 +256,26 @@ namespace LootLasso
             return true;
         }
 
-        void EndMatch(string reason)
+        // Ends the match with the scores as they are right now.
+        public void EndMatch(string reason) => EndMatch(reason, YourScore, RivalScore);
+
+        // Ends the match with given final scores (world sides). Online, the host sends its scores and the
+        // guest ends with those, so both show the same result even if their views differed slightly.
+        public void EndMatch(string reason, int bottomScore, int topScore)
         {
+            bool firstTime = !isOver; // the guest may already have ended at time-up; the host's scores then correct it
             isPlaying = false;
             isOver = true;
             resultReason = reason;
-            // Freeze the scores now. Anything still on a rope doesn't count.
-            finalYourScore = YourScore;
-            finalRivalScore = RivalScore;
-            result = finalYourScore > finalRivalScore ? "YOU WIN!"
-                   : finalYourScore < finalRivalScore ? "RIVAL WINS"
+            // Freeze the scores. Anything still on a rope doesn't count.
+            finalYourScore = bottomScore;
+            finalRivalScore = topScore;
+            result = FinalLocalScore > FinalOpponentScore ? "YOU WIN!"
+                   : FinalLocalScore < FinalOpponentScore ? "RIVAL WINS"
                    : "DRAW";
 
             // Tell anyone listening (the menu saves the score). "?." = only if someone is listening.
-            MatchEnded?.Invoke();
+            if (firstTime) MatchEnded?.Invoke();
         }
 
         // Back to the menus: clears the field and stops everything.
@@ -275,6 +303,7 @@ namespace LootLasso
             return total;
         }
 
+        // World sides: the bottom hoard and the top hoard. (Use LocalScore / OpponentScore for "you" and "them".)
         public int YourScore => Score(yourHoard);
         public int RivalScore => Score(rivalHoard);
 

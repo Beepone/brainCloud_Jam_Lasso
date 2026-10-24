@@ -54,25 +54,25 @@ namespace LootLasso
                 alignment = TextAnchor.MiddleCenter,
             };
 
-            // Once the match is over, show the frozen final scores.
-            int yourScore = arena.isOver ? arena.finalYourScore : arena.YourScore;
-            int rivalScore = arena.isOver ? arena.finalRivalScore : arena.RivalScore;
+            // "You" = the player at this computer (online, the guest plays the top side of the world, with
+            // its camera turned around so it's at the bottom of the screen). Once over: the frozen final scores.
+            int yourScore = arena.isOver ? arena.FinalLocalScore : arena.LocalScore;
+            int rivalScore = arena.isOver ? arena.FinalOpponentScore : arena.OpponentScore;
 
-            // Your score: in the spare strip under your hoard.
-            Vector2 yourSpot = new Vector2(arena.yourHoard.center.x, arena.yourHoard.yMin - 0.75f);
-            DrawText($"YOU  {yourScore}", yourSpot, YourColor, style, Align.Center);
+            // Positions are in ART PIXELS of the 180 x 320 screen (see docs/art/UITemplates.md), not world
+            // positions, so they stay in the same place on screen even when the camera is turned around.
+            // Your score: centred in the strip under your hoard (row 301).
+            DrawTextAtPixel($"YOU  {yourScore}", 90, 301, YourColor, style, Align.Center);
 
-            // The rival's score: top-left of their hoard, starting at its left edge so it never runs off screen.
-            // Art pixel row 22 from the top (22 / 23 = 0.96 units down): below the ~17 px where phone notches sit.
-            float topY = arena.rivalHoard.yMax - 0.96f;
-            DrawText($"RIVAL  {rivalScore}", new Vector2(arena.rivalHoard.xMin + 0.25f, topY), RivalColor, style, Align.Left);
+            // The rival's score: top-left, row 22 (below the ~17 px where phone notches sit).
+            DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left);
 
-            // The timer: top-right, ending at the hoard's right edge. Red in the last 10 seconds.
+            // The timer: top-right, row 22. Red in the last 10 seconds.
             // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
             int secondsLeft = Mathf.CeilToInt(arena.timeLeft);
             string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
             Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
-            DrawText(clock, new Vector2(arena.rivalHoard.xMax - 0.25f, topY), clockColor, style, Align.Right);
+            DrawTextAtPixel(clock, 174, 22, clockColor, style, Align.Right);
 
             // Popups rise and fade. Loop backwards so removing finished ones doesn't skip any.
             style.fontSize = Mathf.RoundToInt(size * 0.85f);
@@ -83,9 +83,11 @@ namespace LootLasso
                 if (age > popupTime) { popups.RemoveAt(i); continue; }
 
                 var color = p.color;
-                color.a = 1f - age / popupTime;                     // fade out
-                Vector2 pos = p.worldPos + Vector2.up * (age * 0.8f); // float upward
-                DrawText(p.text, pos, color, style, Align.Center);
+                color.a = 1f - age / popupTime; // fade out
+                // Float up the SCREEN (not the world, which is upside down for the online guest).
+                Vector3 screen = Camera.main.WorldToScreenPoint(p.worldPos);
+                screen.y += age * Screen.height * 0.06f;
+                DrawTextAtScreen(p.text, screen, color, style, Align.Center);
             }
 
             if (arena.isOver) DrawResultPanel(arena, size);
@@ -112,7 +114,7 @@ namespace LootLasso
             float row = h / 6f; // split the panel into 6 rows
             GUI.Label(new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), arena.result, title);
             GUI.Label(new Rect(panel.x, panel.y + row * 1.6f, w, row), arena.resultReason, line);
-            GUI.Label(new Rect(panel.x, panel.y + row * 2.4f, w, row), $"You {arena.finalYourScore}   -   Rival {arena.finalRivalScore}", line);
+            GUI.Label(new Rect(panel.x, panel.y + row * 2.4f, w, row), $"You {arena.FinalLocalScore}   -   Rival {arena.FinalOpponentScore}", line);
 
             // What happened to the score on the leaderboard (from the menu, if there is one).
             var menu = MainMenu.Current;
@@ -130,7 +132,7 @@ namespace LootLasso
             if (menu != null)
             {
                 button.fontSize = Mathf.RoundToInt(size * 0.8f); // two buttons share the width: smaller text fits
-                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, w * 0.42f, bh), "PLAY AGAIN", button)) menu.Play();
+                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, w * 0.42f, bh), "PLAY AGAIN", button)) menu.PlayAgain(); // same mode as last time (online or practice)
                 if (GUI.Button(new Rect(panel.x + w * 0.52f, by, w * 0.42f, bh), "MENU", button)) menu.BackToTitle();
             }
             else if (GUI.Button(new Rect(panel.x + w * 0.25f, by, w * 0.5f, bh), "PLAY AGAIN", button)) arena.PlayAgain();
@@ -138,13 +140,20 @@ namespace LootLasso
 
         enum Align { Left, Center, Right }
 
-        // Draws text at a world position, with a dark shadow so it reads on any background.
-        // Left = starts at the point, Center = centred on it, Right = ends at it.
-        static void DrawText(string text, Vector2 worldPos, Color color, GUIStyle style, Align align)
+        // Draws text at an art pixel of the 180 x 320 screen (column, row counted from the top-left).
+        static void DrawTextAtPixel(string text, float column, float row, Color color, GUIStyle style, Align align)
         {
-            // World -> screen pixels. GUI's y runs DOWN from the top, while the camera's runs UP from
-            // the bottom, so flip it.
-            Vector3 screen = Camera.main.WorldToScreenPoint(worldPos);
+            // Viewport = the camera's picture, from (0,0) bottom-left to (1,1) top-right. Going through it
+            // respects the Pixel Perfect Camera's borders, if it adds any.
+            Vector3 screen = Camera.main.ViewportToScreenPoint(new Vector3(column / 180f, 1f - row / 320f, 0f));
+            DrawTextAtScreen(text, screen, color, style, align);
+        }
+
+        // Draws text at a screen position (pixels, y up from the bottom), with a dark shadow so it reads on
+        // any background. Left = starts at the point, Center = centred on it, Right = ends at it.
+        static void DrawTextAtScreen(string text, Vector3 screen, Color color, GUIStyle style, Align align)
+        {
+            // GUI's y runs DOWN from the top, while the screen's runs UP from the bottom, so flip it.
             float x = align == Align.Left ? screen.x : align == Align.Right ? screen.x - 400f : screen.x - 200f;
             style.alignment = align == Align.Left ? TextAnchor.MiddleLeft
                             : align == Align.Right ? TextAnchor.MiddleRight
