@@ -182,6 +182,8 @@ namespace LootLasso
             foreach (var lasso in FindObjectsByType<LassoSpin>()) lasso.ResetLasso();
             foreach (var bot in FindObjectsByType<LassoBot>()) bot.ResetBot();
 
+            ColorZones(); // localSide may have changed (online guest, or back to solo)
+
             matchSeed = newSeed;
             matchStart = Time.realtimeSinceStartupAsDouble - alreadyElapsed;
             isPlaying = true;
@@ -308,17 +310,32 @@ namespace LootLasso
         public int RivalScore => Score(rivalHoard);
 
         // Draws the two hoard zones as faint rectangles (placeholders until the art arrives).
+        SpriteRenderer bottomZone, topZone;
+        static readonly Color YourZoneColor = new Color(0.3f, 0.6f, 1f, 0.18f);   // blue
+        static readonly Color RivalZoneColor = new Color(1f, 0.35f, 0.35f, 0.18f); // red
+
         void DrawZones()
         {
-            DrawRect("Your Hoard", yourHoard, new Color(0.3f, 0.6f, 1f, 0.18f));
-            DrawRect("Rival Hoard", rivalHoard, new Color(1f, 0.35f, 0.35f, 0.18f));
+            bottomZone = DrawRect("Bottom Hoard", yourHoard);
+            topZone = DrawRect("Top Hoard", rivalHoard);
+            ColorZones();
         }
 
-        void DrawRect(string name, Rect r, Color color)
+        // Blue is always YOUR hoard, red the rival's. Online, the guest's hoard is the top one.
+        void ColorZones()
         {
-            var sr = PlaceholderArt.CreateSprite(name, PlaceholderArt.Square, color, -10, transform);
+            if (bottomZone == null || topZone == null) return;
+            bool localIsBottom = localSide == LassoSpin.Side.You;
+            bottomZone.color = localIsBottom ? YourZoneColor : RivalZoneColor;
+            topZone.color = localIsBottom ? RivalZoneColor : YourZoneColor;
+        }
+
+        SpriteRenderer DrawRect(string name, Rect r)
+        {
+            var sr = PlaceholderArt.CreateSprite(name, PlaceholderArt.Square, Color.white, -10, transform);
             sr.transform.position = r.center;
             sr.transform.localScale = new Vector3(r.width, r.height, 1f);
+            return sr;
         }
 
         // OnDrawGizmos draws outlines in the Scene view (not in the game), so you can see the
