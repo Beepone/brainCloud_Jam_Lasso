@@ -131,9 +131,15 @@ namespace LootLasso
             float by = panel.y + row * 4.4f, bh = row * 1.2f;
             if (menu != null)
             {
-                button.fontSize = Mathf.RoundToInt(size * 0.8f); // two buttons share the width: smaller text fits
-                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, w * 0.42f, bh), "PLAY AGAIN", button)) menu.PlayAgain(); // same mode as last time (online or practice)
-                if (GUI.Button(new Rect(panel.x + w * 0.52f, by, w * 0.42f, bh), "MENU", button)) menu.BackToTitle();
+                // Two buttons share the width: shrink the text until the longer label fits. (Fonts differ between
+                // the editor and browsers, so a fixed size that fits in one can be clipped in the other.)
+                // CalcSize measures how big a piece of text would be in this style; padding = the button's inner margins.
+                float buttonWidth = w * 0.42f;
+                button.fontSize = Mathf.RoundToInt(size * 0.8f);
+                while (button.fontSize > 6 && button.CalcSize(new GUIContent("PLAY AGAIN")).x > buttonWidth - button.padding.horizontal)
+                    button.fontSize--;
+                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, buttonWidth, bh), "PLAY AGAIN", button)) menu.PlayAgain(); // same mode as last time (online or practice)
+                if (GUI.Button(new Rect(panel.x + w * 0.52f, by, buttonWidth, bh), "MENU", button)) menu.BackToTitle();
             }
             else if (GUI.Button(new Rect(panel.x + w * 0.25f, by, w * 0.5f, bh), "PLAY AGAIN", button)) arena.PlayAgain();
         }
