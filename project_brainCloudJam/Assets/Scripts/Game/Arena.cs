@@ -263,7 +263,8 @@ namespace LootLasso
 
         // Ends the match with given final scores (world sides). Online, the host sends its scores and the
         // guest ends with those, so both show the same result even if their views differed slightly.
-        public void EndMatch(string reason, int bottomScore, int topScore)
+        // localWins: force a win for this player whatever the score (the rival left the match).
+        public void EndMatch(string reason, int bottomScore, int topScore, bool localWins = false)
         {
             bool firstTime = !isOver; // the guest may already have ended at time-up; the host's scores then correct it
             isPlaying = false;
@@ -272,7 +273,7 @@ namespace LootLasso
             // Freeze the scores. Anything still on a rope doesn't count.
             finalYourScore = bottomScore;
             finalRivalScore = topScore;
-            result = FinalLocalScore > FinalOpponentScore ? "YOU WIN!"
+            result = localWins || FinalLocalScore > FinalOpponentScore ? "YOU WIN!"
                    : FinalLocalScore < FinalOpponentScore ? "RIVAL WINS"
                    : "DRAW";
 

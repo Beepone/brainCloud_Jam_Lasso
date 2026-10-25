@@ -207,7 +207,8 @@ namespace LootLasso
 
                 case "MEMBER_LEFT":
                 case "DISBANDED":
-                    if (phase == Phase.Playing) arena.EndMatch("The rival left.");
+                    // Leaving forfeits: whoever stays wins, whatever the score.
+                    if (phase == Phase.Playing) arena.EndMatch("The rival left.", arena.YourScore, arena.RivalScore, localWins: true);
                     else if (phase == Phase.Starting) { phase = Phase.Searching; status = "Looking for a rival..."; }
                     break;
 
