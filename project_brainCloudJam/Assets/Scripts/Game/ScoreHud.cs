@@ -140,12 +140,22 @@ namespace LootLasso
 
         enum Align { Left, Center, Right }
 
+        const float ArtPixelsPerUnit = 23f; // the map art's scale (see docs/art/MapTemplate.md)
+
         // Draws text at an art pixel of the 180 x 320 screen (column, row counted from the top-left).
         static void DrawTextAtPixel(string text, float column, float row, Color color, GUIStyle style, Align align)
         {
-            // Viewport = the camera's picture, from (0,0) bottom-left to (1,1) top-right. Going through it
-            // respects the Pixel Perfect Camera's borders, if it adds any.
-            Vector3 screen = Camera.main.ViewportToScreenPoint(new Vector3(column / 180f, 1f - row / 320f, 0f));
+            // The 180 x 320 play area sits in the middle of the screen, but the screen may be wider or taller
+            // (a landscape browser window shows extra field at the sides). So measure from the play area,
+            // not the screen's edges. Screen pixels per world unit = screen height / camera view height.
+            var cam = Camera.main;
+            float pixelsPerUnit = cam.pixelHeight / (cam.orthographicSize * 2f);
+            float pixelsPerArtPixel = pixelsPerUnit / ArtPixelsPerUnit;
+            Vector2 centre = cam.pixelRect.center;
+            var screen = new Vector3(
+                centre.x + (column - 90f) * pixelsPerArtPixel,  // 90 = half of 180
+                centre.y + (160f - row) * pixelsPerArtPixel,    // 160 = half of 320; rows count down from the top
+                0f);
             DrawTextAtScreen(text, screen, color, style, align);
         }
 
