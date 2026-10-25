@@ -141,7 +141,8 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 - **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs.
 - **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `matchEnd(scores)`, plus `ping` for latency.
 - **No opponent?** After about **15 s** of waiting, the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
-- **Disconnects:** if the opponent leaves mid-match, a bot takes over or the match ends with a "win by forfeit".
+- **Disconnects:** if the opponent leaves mid-match, the match ends and **the player who stays wins** (forfeit), whatever the score.
+- **Sides:** the host plays the bottom hoard, the guest the top, with its camera turned 180° so everyone sees themselves at the bottom. Hoards are coloured from each player's own view (yours blue, theirs red). The code is `Scripts/Game/NetMatch.cs`.
 
 ---
 
@@ -230,13 +231,14 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 - *Oct 16–20:* project setup, brainCloud login and leaderboards, prototypes of the throw, moving treasure and browser multiplayer (all proven on itch.io), design doc, the finished throw (milestone 1).
 - *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. Then the match timer, winner panel and Play Again, and the **bot** (LassoBot: the same lasso driven by a fake hand). **Milestone 2 done, a day early.**
 - *Oct 23:* **milestone 5 done** (done before 3 and 4): title, first-launch name entry, How to Play, and a leaderboard of total treasure ever (brainCloud cumulative leaderboard `TotalTreasure`).
+- *Oct 24:* **milestone 4 done, two days early:** online 1v1 over lobby signals. PLAY ONLINE falls back to the bot after 15 s, and PRACTICE plays the bot directly. It was tested editor vs itch build: synced treasure, scores and timer, the match end, and forfeit when a player leaves. The web build is now a 540×960 canvas, and the Pixel Perfect Camera uses Stretch Fill so any browser zoom fills the frame. **The first phone test on itch looks good.**
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
 | 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
 | 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
-| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io; **tested on a phone** | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
-| 4 | **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found | Sun Oct 26 | VFX, decorations |
+| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io ✅; **tested on a phone** ✅ (placeholders, Oct 24) | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
+| 4 | ✅ **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found (done Oct 24) | Sun Oct 26 | VFX, decorations |
 | 5 | ✅ **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
 | — | **🔒 Feature freeze** | Evening of **Mon Oct 27**: after this, only bugs, tuning and polish | | |
 | 6 | **Polish and sound** | Joey's SFX and music, juice (shake, particles), How to Play | Tue Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
