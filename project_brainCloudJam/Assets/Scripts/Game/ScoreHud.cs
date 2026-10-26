@@ -15,8 +15,11 @@ namespace LootLasso
         [Tooltip("How long a popup floats before it fades out, in seconds.")]
         public float popupTime = 1.2f;
 
-        static readonly Color YourColor = new Color(0.55f, 0.75f, 1f);
-        static readonly Color RivalColor = new Color(1f, 0.55f, 0.55f);
+        // Text colours: each player's score is shown in their hunter's colour (blue or red, picked per match).
+        static readonly Color BlueText = new Color(0.55f, 0.75f, 1f);
+        static readonly Color RedText = new Color(1f, 0.55f, 0.55f);
+        static Color YourColor => Arena.Current != null && !Arena.Current.LocalIsBlue ? RedText : BlueText;
+        static Color RivalColor => Arena.Current != null && !Arena.Current.LocalIsBlue ? BlueText : RedText;
 
         // ----- Popups -----
         // A "struct" is a small bundle of values (like a class, but copied around as a value).

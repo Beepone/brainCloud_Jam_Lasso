@@ -94,6 +94,19 @@ namespace LootLasso
         // to save your score to the leaderboard. "System.Action" = a method with no inputs.
         public event System.Action MatchEnded;
 
+        [Header("Sound (filled in from Assets/SFX automatically in the editor)")]
+        public AudioClip lassoTwirl;
+        public AudioClip lassoThrow;
+        public AudioClip lassoGrab;
+        public AudioClip gameplayMusic; // loops during a match (GameMusic.cs)
+
+        [Header("Hunter art (filled in from Assets/Sprites automatically in the editor)")]
+        [Tooltip("The imported Aseprite files. Back = seen from behind (you), front = facing you (the rival).")]
+        public GameObject hunterBlueBack;
+        public GameObject hunterBlueFront;
+        public GameObject hunterRedBack;
+        public GameObject hunterRedFront;
+
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
         public float matchLength = 120f;
@@ -105,6 +118,8 @@ namespace LootLasso
         [HideInInspector] public bool decidesEnd = true;
 
         [Header("Readouts")]
+        [Tooltip("Which colour the bottom hunter is this match (picked from the seed, so online both players agree).")]
+        public bool bottomIsBlue = true;
         public int matchSeed;
         public float matchTime;
         public float timeLeft;
@@ -142,7 +157,33 @@ namespace LootLasso
 
         // OnValidate runs in the editor whenever a value changes in the Inspector,
         // so the rival hoard updates as you edit yours.
-        void OnValidate() => rivalHoard = Mirror(yourHoard);
+        void OnValidate()
+        {
+            rivalHoard = Mirror(yourHoard);
+            FindAssets();
+        }
+
+        // Editor only: fill empty sound slots from Assets/SFX, so there's nothing to drag in.
+        // "#if UNITY_EDITOR" = this code only exists in the editor (AssetDatabase isn't in builds).
+        // Save the scene afterwards, so the build keeps them.
+        void FindAssets()
+        {
+#if UNITY_EDITOR
+            bool wasMissing = lassoTwirl == null || lassoThrow == null || lassoGrab == null || gameplayMusic == null
+                           || hunterBlueBack == null || hunterBlueFront == null || hunterRedBack == null || hunterRedFront == null;
+            if (lassoTwirl == null) lassoTwirl = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoTwirl.ogg");
+            if (lassoThrow == null) lassoThrow = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoThrow.ogg");
+            if (lassoGrab == null) lassoGrab = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoGrab.ogg");
+            if (gameplayMusic == null) gameplayMusic = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/GameplayTrack.ogg");
+            // An Aseprite file's main asset is a ready-made object (sprite + Animator with one state per tag).
+            if (hunterBlueBack == null) hunterBlueBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_backsprite.aseprite");
+            if (hunterBlueFront == null) hunterBlueFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_frontsprite.aseprite");
+            if (hunterRedBack == null) hunterRedBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_backsprite.aseprite");
+            if (hunterRedFront == null) hunterRedFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_frontsprite.aseprite");
+            // Mark the scene as changed, so Ctrl+S actually saves the clips (filling them in here doesn't on its own).
+            if (wasMissing && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
 
         // Reset runs when you choose Reset from the component's menu (and when the component is first added).
         void Reset() => rivalHoard = Mirror(yourHoard);
@@ -162,6 +203,13 @@ namespace LootLasso
             // The score display and the menus: added here so the scene needs no extra setup.
             if (GetComponent<ScoreHud>() == null) gameObject.AddComponent<ScoreHud>();
             if (showMenus && GetComponent<MainMenu>() == null) gameObject.AddComponent<MainMenu>();
+            if (GetComponent<GameMusic>() == null) gameObject.AddComponent<GameMusic>();
+            // Every lasso gets its sounds and its hunter art.
+            foreach (var lasso in FindObjectsByType<LassoSpin>())
+            {
+                if (lasso.GetComponent<LassoSound>() == null) lasso.gameObject.AddComponent<LassoSound>();
+                if (lasso.GetComponent<HunterArt>() == null) lasso.gameObject.AddComponent<HunterArt>();
+            }
             DrawZones();
 
             // With menus, the title screen starts the match (Play). Without, start right away.
@@ -182,7 +230,11 @@ namespace LootLasso
             foreach (var lasso in FindObjectsByType<LassoSpin>()) lasso.ResetLasso();
             foreach (var bot in FindObjectsByType<LassoBot>()) bot.ResetBot();
 
-            ColorZones(); // localSide may have changed (online guest, or back to solo)
+            // Colours: an even seed makes the bottom hunter blue, odd makes it red. Solo matches get a new
+            // random seed each time, so your colour changes between matches; online, both share the seed.
+            // "&" = bitwise AND: (seed & 1) is the last binary digit, 0 for even numbers and 1 for odd.
+            bottomIsBlue = (newSeed & 1) == 0;
+            ColorZones();
 
             matchSeed = newSeed;
             matchStart = Time.realtimeSinceStartupAsDouble - alreadyElapsed;
@@ -312,8 +364,12 @@ namespace LootLasso
 
         // Draws the two hoard zones as faint rectangles (placeholders until the art arrives).
         SpriteRenderer bottomZone, topZone;
-        static readonly Color YourZoneColor = new Color(0.3f, 0.6f, 1f, 0.18f);   // blue
-        static readonly Color RivalZoneColor = new Color(1f, 0.35f, 0.35f, 0.18f); // red
+        static readonly Color BlueZoneColor = new Color(0.3f, 0.6f, 1f, 0.18f);
+        static readonly Color RedZoneColor = new Color(1f, 0.35f, 0.35f, 0.18f);
+
+        // Is the hunter on this side blue this match? And the player at this computer?
+        public bool IsBlue(LassoSpin.Side side) => (side == LassoSpin.Side.You) == bottomIsBlue;
+        public bool LocalIsBlue => IsBlue(localSide);
 
         void DrawZones()
         {
@@ -322,13 +378,12 @@ namespace LootLasso
             ColorZones();
         }
 
-        // Blue is always YOUR hoard, red the rival's. Online, the guest's hoard is the top one.
+        // Each hoard takes the colour of its hunter.
         void ColorZones()
         {
             if (bottomZone == null || topZone == null) return;
-            bool localIsBottom = localSide == LassoSpin.Side.You;
-            bottomZone.color = localIsBottom ? YourZoneColor : RivalZoneColor;
-            topZone.color = localIsBottom ? RivalZoneColor : YourZoneColor;
+            bottomZone.color = bottomIsBlue ? BlueZoneColor : RedZoneColor;
+            topZone.color = bottomIsBlue ? RedZoneColor : BlueZoneColor;
         }
 
         SpriteRenderer DrawRect(string name, Rect r)

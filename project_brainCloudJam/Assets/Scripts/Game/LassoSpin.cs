@@ -183,6 +183,11 @@ namespace LootLasso
         // For the bot: where the spinning loop is around the character right now (degrees, 0 = right).
         public float LoopAngle => loopAngle;
 
+        // For the sounds (LassoSound.cs): what the lasso is doing.
+        public bool IsWindingUp => phase == Phase.WindUp;
+        public bool IsFlying => phase == Phase.Flying;
+        public event System.Action<LassoSpin> Hooked; // something was just caught on the rope
+
         // ===== Start =====
         // Unity calls Start once, before the first Update.
         void Start()
@@ -643,6 +648,7 @@ namespace LootLasso
         // Puts these treasures on this rope (from our own Catch, or the host's decision).
         void HookAll(List<Treasure> found)
         {
+            if (found.Count > 0) Hooked?.Invoke(this);
             hooked.Clear();
             hookedOffsets.Clear();
             caughtWeight = 0f;
