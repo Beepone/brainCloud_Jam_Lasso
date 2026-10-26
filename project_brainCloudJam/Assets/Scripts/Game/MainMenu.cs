@@ -197,14 +197,17 @@ namespace LootLasso
 
         void DrawTitle(int size)
         {
-            Label("LOOT LASSO", 0.16f, size * 1.9f, new Color(1f, 0.85f, 0.2f), bold: true);
-            Label($"Hi, {playerName}", 0.27f, size, Color.white);
-            if (SmallButton("change name", 0.32f, size)) { nameInput = playerName; current = Screen.NameEntry; }
+            // The logo (140 x 64 art pixels), centred at row 52 of the 320-row screen, just below the notch zone.
+            if (arena.titleLogo != null) DrawArtSprite(arena.titleLogo, 52f / 320f);
+            else Label("LOOT LASSO", 0.16f, size * 1.9f, new Color(1f, 0.85f, 0.2f), bold: true);
 
-            if (Button("PLAY ONLINE", 0.42f, size)) Play();
-            if (Button("PRACTICE", 0.52f, size)) Practice();
-            if (Button("LEADERBOARD", 0.62f, size)) OpenLeaderboard();
-            if (Button("HOW TO PLAY", 0.72f, size)) current = Screen.HowToPlay;
+            Label($"Hi, {playerName}", 0.30f, size, Color.white);
+            if (SmallButton("change name", 0.347f, size)) { nameInput = playerName; current = Screen.NameEntry; }
+
+            if (Button("PLAY ONLINE", 0.45f, size)) Play();
+            if (Button("PRACTICE", 0.545f, size)) Practice();
+            if (Button("LEADERBOARD", 0.64f, size)) OpenLeaderboard();
+            if (Button("HOW TO PLAY", 0.735f, size)) current = Screen.HowToPlay;
 
             Label(onlineStatus, 0.9f, size * 0.7f, loggedIn ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.7f, 0.5f));
         }
@@ -290,6 +293,24 @@ namespace LootLasso
         }
 
         // ----- Small drawing helpers (y and widths are fractions of the screen) -----
+
+        // Draws a sprite at the game's pixel scale (one art pixel = the same size as in the 180 x 320 world),
+        // centred left-to-right with its middle at y (a fraction of the screen height).
+        static void DrawArtSprite(Sprite sprite, float y)
+        {
+            // How many screen pixels one art pixel covers: the screen fits 320 rows tall or 180 columns wide,
+            // whichever is tighter (Min).
+            float scale = Mathf.Min(H / 320f, W / 180f);
+            Rect pixels = sprite.textureRect; // where the sprite sits in its texture, in texture pixels
+            float w = pixels.width * scale, h = pixels.height * scale;
+            var screenRect = new Rect((W - w) / 2f, H * y - h / 2f, w, h);
+
+            // DrawTextureWithTexCoords draws just part of a texture. Its coordinates are fractions (0..1) of
+            // the texture's width and height.
+            Texture2D tex = sprite.texture;
+            var part = new Rect(pixels.x / tex.width, pixels.y / tex.height, pixels.width / tex.width, pixels.height / tex.height);
+            GUI.DrawTextureWithTexCoords(screenRect, tex, part);
+        }
 
         static Rect Centered(float y, float width, float height) =>
             new Rect((W - W * width) / 2f, H * y - height / 2f, W * width, height);

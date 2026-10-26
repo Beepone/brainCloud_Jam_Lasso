@@ -109,6 +109,10 @@ namespace LootLasso
         public GameObject hunterRedBack;
         public GameObject hunterRedFront;
 
+        [Header("Menu art (filled in automatically in the editor)")]
+        [Tooltip("The title logo, drawn at the game's pixel scale on the title screen. Empty = plain text.")]
+        public Sprite titleLogo;
+
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
         public float matchLength = 120f;
@@ -171,6 +175,17 @@ namespace LootLasso
         void FindAssets()
         {
 #if UNITY_EDITOR
+            if (titleLogo == null)
+            {
+                // An Aseprite file holds several assets (the object, its sprites, animations...): find its first sprite.
+                foreach (var asset in UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Sprites/lootlasso_logo.aseprite"))
+                    if (asset is Sprite logo)
+                    {
+                        titleLogo = logo;
+                        if (!Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+                        break;
+                    }
+            }
             bool wasMissing = lassoTwirl == null || lassoThrow == null || lassoGrab == null || gameplayMusic == null
                            || hunterBlueBack == null || hunterBlueFront == null || hunterRedBack == null || hunterRedFront == null;
             if (lassoTwirl == null) lassoTwirl = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoTwirl.ogg");
