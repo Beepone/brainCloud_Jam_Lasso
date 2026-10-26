@@ -78,12 +78,22 @@ namespace LootLasso
             var go = new GameObject($"{kind.name} {id}");
             go.transform.SetParent(arena.transform, false);
             go.transform.position = position;
-            // Real art is drawn at its true pixel size (imported at 22.857 pixels per unit, the map's scale),
+            // Real art is drawn at its true pixel size (imported at 23 pixels per unit, the map's scale),
             // so it's used as-is. The placeholder circle is 1 unit wide, so it's scaled to the kind's size.
-            go.transform.localScale = kind.sprite != null ? Vector3.one : Vector3.one * kind.size;
+            bool hasArt = kind.animatedArt != null || kind.sprite != null;
+            go.transform.localScale = hasArt ? Vector3.one : Vector3.one * kind.size;
+
+            // Animated art: a copy of the imported file as a child, with TreasureArt picking the animation.
+            if (kind.animatedArt != null)
+            {
+                var art = Instantiate(kind.animatedArt, go.transform);
+                art.transform.localPosition = Vector3.zero;
+                go.AddComponent<TreasureArt>();
+            }
 
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = kind.sprite != null ? kind.sprite : PlaceholderArt.Circle; // the art, or a placeholder
+            sr.enabled = kind.animatedArt == null; // the animated art draws itself
             sr.color = kind.sprite != null ? Color.white : kind.color;               // tint only the placeholder
             sr.sortingOrder = 0;
 

@@ -61,7 +61,9 @@ namespace LootLasso
             public float speed = 1f;
             [Tooltip("Diameter, world units.")]
             public float size = 0.4f;
-            [Tooltip("The art. Empty = a placeholder circle in 'color'.")]
+            [Tooltip("Animated art: an imported Aseprite file (see TreasureArt.cs for the tag names). Used first if set.")]
+            public GameObject animatedArt;
+            [Tooltip("Still art, if there's no animated art. Both empty = a placeholder circle in 'color'.")]
             public Sprite sprite;
             public Color color = Color.yellow;
             [Tooltip("How many of these are in the field at the start of a match.")]
@@ -179,6 +181,12 @@ namespace LootLasso
             if (hunterBlueBack == null) hunterBlueBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_backsprite.aseprite");
             if (hunterBlueFront == null) hunterBlueFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_frontsprite.aseprite");
             if (hunterRedBack == null) hunterRedBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_backsprite.aseprite");
+            // Treasure art: the first kind (Coin) uses the coin file, if it hasn't been set.
+            if (kinds.Count > 0 && kinds[0].animatedArt == null)
+            {
+                kinds[0].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/coin_sprite.aseprite");
+                if (kinds[0].animatedArt != null) wasMissing = true;
+            }
             if (hunterRedFront == null) hunterRedFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_frontsprite.aseprite");
             // Mark the scene as changed, so Ctrl+S actually saves the clips (filling them in here doesn't on its own).
             if (wasMissing && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);

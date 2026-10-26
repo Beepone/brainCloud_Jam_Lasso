@@ -737,6 +737,7 @@ MonoBehaviour:
     weight: 1
     speed: 1
     size: 0.4
+    animatedArt: {fileID: -2253911629886400664, guid: 98b50f4942dc7fb4897aa02f5c0f3778, type: 3}
     sprite: {fileID: 0}
     color: {r: 1, g: 0.85, b: 0.2, a: 1}
     count: 10
@@ -745,6 +746,7 @@ MonoBehaviour:
     weight: 3
     speed: 2
     size: 0.7
+    animatedArt: {fileID: 0}
     sprite: {fileID: 0}
     color: {r: 0.65, g: 0.4, b: 0.2, a: 1}
     count: 4
@@ -753,6 +755,7 @@ MonoBehaviour:
     weight: 6
     speed: 3.5
     size: 0.6
+    animatedArt: {fileID: 0}
     sprite: {fileID: 0}
     color: {r: 0.3, g: 1, b: 0.6, a: 1}
     count: 2
