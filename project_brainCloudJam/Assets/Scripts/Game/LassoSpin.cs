@@ -198,18 +198,20 @@ namespace LootLasso
             // No loop object dragged in (e.g. the bot's lasso): make a placeholder one.
             if (loop == null)
             {
-                var sr = PlaceholderArt.CreateSprite(name + " Loop", PlaceholderArt.Circle, new Color(1f, 0.6f, 0.75f), 6);
+                var sr = PlaceholderArt.CreateSprite(name + " Loop", PlaceholderArt.Circle, new Color(1f, 0.6f, 0.75f), YSort.Loop);
                 sr.transform.localScale = Vector3.one * 0.3f;
                 loop = sr.transform;
             }
             loopSpinScale = loop.localScale;
+            // The loop and rope draw on top of everything (see YSort.cs), so you can always see your lasso.
+            foreach (var loopSprite in loop.GetComponentsInChildren<SpriteRenderer>()) loopSprite.sortingOrder = YSort.Loop;
 
             // The rope is drawn with the placeholder shapes from the old prototype
             // (Scripts/Lasso/PlaceholderArt.cs). The artists' sprites will replace them.
             // Rope pieces: one from the player to the first bounce (or the loop), then one more per bounce.
             ropePieces = new SpriteRenderer[maxBounces + 1];
             for (int i = 0; i < ropePieces.Length; i++) // "for": run this once for each i = 0, 1, 2, ...
-                ropePieces[i] = PlaceholderArt.CreateSprite("Rope " + i, PlaceholderArt.Square, RopeColor, 5);
+                ropePieces[i] = PlaceholderArt.CreateSprite("Rope " + i, PlaceholderArt.Square, RopeColor, YSort.Rope);
             HideRope();
             loop.gameObject.SetActive(false);
         }

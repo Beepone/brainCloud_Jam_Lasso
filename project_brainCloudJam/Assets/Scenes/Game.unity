@@ -772,6 +772,20 @@ MonoBehaviour:
   hunterRedBack: {fileID: -2253911629886400664, guid: 35fdd6c3dad19cb41b1e61eec18aba2a, type: 3}
   hunterRedFront: {fileID: -2253911629886400664, guid: 1ae2dadc6b4b67f42a4a0cdd9aa04839, type: 3}
   titleLogo: {fileID: -7614056076439219471, guid: 553b301d0dc4b54469e6300d50dcd796, type: 3}
+  winnerBlue:
+  - {fileID: 7809338902774899503, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  - {fileID: -5539611440801149956, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  - {fileID: 7716973676997703503, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  - {fileID: 1528293934133704871, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  - {fileID: 3345508639052241488, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  - {fileID: 854192409725439855, guid: 0c08b1d097e62b4449f80133db86e88f, type: 3}
+  winnerRed:
+  - {fileID: 148732833688814989, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
+  - {fileID: 5095120519400567443, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
+  - {fileID: 1970469023045959114, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
+  - {fileID: 4281440298380543106, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
+  - {fileID: -287101720043869416, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
+  - {fileID: -4545032966840944530, guid: 3b7e0439be7e542479c064ef497d05cb, type: 3}
   matchLength: 120
   localSide: 0
   decidesEnd: 1

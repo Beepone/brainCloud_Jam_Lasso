@@ -95,7 +95,7 @@ namespace LootLasso
             sr.sprite = kind.sprite != null ? kind.sprite : PlaceholderArt.Circle; // the art, or a placeholder
             sr.enabled = kind.animatedArt == null; // the animated art draws itself
             sr.color = kind.sprite != null ? Color.white : kind.color;               // tint only the placeholder
-            sr.sortingOrder = 0;
+            go.AddComponent<YSort>(); // drawn in front of or behind hunters and other treasure by screen height
 
             var t = go.AddComponent<Treasure>();
             t.id = id;

@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Rendering; // SortingGroup
 
 namespace LootLasso
 {
@@ -20,8 +19,6 @@ namespace LootLasso
     [RequireComponent(typeof(LassoSpin))]
     public class HunterArt : MonoBehaviour
     {
-        [Tooltip("Drawn above treasure (0) and below the rope (5) and loop (6).")]
-        public int sortingOrder = 4;
         [Tooltip("Swing animation speed at the slowest and fastest spin.")]
         public float minSwingSpeed = 0.6f;
         public float maxSwingSpeed = 2f;
@@ -75,11 +72,6 @@ namespace LootLasso
             body.transform.localPosition = Vector3.zero;
             animator = body.GetComponent<Animator>();
             animationName = "";
-
-            // The importer adds a SortingGroup, which decides the draw order for the whole object.
-            var group = body.GetComponent<SortingGroup>();
-            if (group != null) group.sortingOrder = sortingOrder;
-            else foreach (var sr in body.GetComponentsInChildren<SpriteRenderer>()) sr.sortingOrder = sortingOrder;
 
             ShowPlaceholder(false);
         }

@@ -112,6 +112,9 @@ namespace LootLasso
         [Header("Menu art (filled in automatically in the editor)")]
         [Tooltip("The title logo, drawn at the game's pixel scale on the title screen. Empty = plain text.")]
         public Sprite titleLogo;
+        [Tooltip("The big 96 x 96 hunters, shown above the result panel for whoever won. Frames in order.")]
+        public Sprite[] winnerBlue;
+        public Sprite[] winnerRed;
 
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
@@ -186,6 +189,8 @@ namespace LootLasso
                         break;
                     }
             }
+            if (winnerBlue == null || winnerBlue.Length == 0) winnerBlue = LoadFrames("Assets/Sprites/explorer_blue_96spriteanimationtest.aseprite");
+            if (winnerRed == null || winnerRed.Length == 0) winnerRed = LoadFrames("Assets/Sprites/explorer_red_96sprite.aseprite");
             bool wasMissing = lassoTwirl == null || lassoThrow == null || lassoGrab == null || gameplayMusic == null
                            || hunterBlueBack == null || hunterBlueFront == null || hunterRedBack == null || hunterRedFront == null;
             if (lassoTwirl == null) lassoTwirl = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoTwirl.ogg");
@@ -207,6 +212,26 @@ namespace LootLasso
             if (wasMissing && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
 #endif
         }
+
+#if UNITY_EDITOR
+        // Editor only: every frame (sprite) of an Aseprite file, in order. The importer names them
+        // Frame_0, Frame_1, ... so they're sorted by the number after the last "_".
+        Sprite[] LoadFrames(string path)
+        {
+            var frames = new List<Sprite>();
+            foreach (var asset in UnityEditor.AssetDatabase.LoadAllAssetsAtPath(path))
+                if (asset is Sprite s) frames.Add(s);
+            frames.Sort((a, b) => FrameNumber(a).CompareTo(FrameNumber(b)));
+            if (frames.Count > 0 && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+            return frames.ToArray();
+        }
+
+        static int FrameNumber(Sprite s)
+        {
+            int underscore = s.name.LastIndexOf('_');
+            return underscore >= 0 && int.TryParse(s.name.Substring(underscore + 1), out int n) ? n : 0;
+        }
+#endif
 
         // Reset runs when you choose Reset from the component's menu (and when the component is first added).
         void Reset() => rivalHoard = Mirror(yourHoard);
@@ -232,6 +257,7 @@ namespace LootLasso
             {
                 if (lasso.GetComponent<LassoSound>() == null) lasso.gameObject.AddComponent<LassoSound>();
                 if (lasso.GetComponent<HunterArt>() == null) lasso.gameObject.AddComponent<HunterArt>();
+                if (lasso.GetComponent<YSort>() == null) lasso.gameObject.AddComponent<YSort>(); // depth order with treasure
             }
             DrawZones();
 
@@ -411,7 +437,7 @@ namespace LootLasso
 
         SpriteRenderer DrawRect(string name, Rect r)
         {
-            var sr = PlaceholderArt.CreateSprite(name, PlaceholderArt.Square, Color.white, -10, transform);
+            var sr = PlaceholderArt.CreateSprite(name, PlaceholderArt.Square, Color.white, YSort.Ground, transform);
             sr.transform.position = r.center;
             sr.transform.localScale = new Vector3(r.width, r.height, 1f);
             return sr;

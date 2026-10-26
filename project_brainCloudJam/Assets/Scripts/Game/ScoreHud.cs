@@ -67,15 +67,20 @@ namespace LootLasso
             // Your score: centred in the strip under your hoard (row 301).
             DrawTextAtPixel($"YOU  {yourScore}", 90, 301, YourColor, style, Align.Center);
 
-            // The rival's score: top-left, row 22 (below the ~17 px where phone notches sit).
-            DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left);
+            // The rival's score and the timer, top row. Hidden once the match is over: the result panel shows
+            // both scores, and the winner portrait stands up there.
+            if (!arena.isOver)
+            {
+                // The rival's score: top-left, row 22 (below the ~17 px where phone notches sit).
+                DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left);
 
-            // The timer: top-right, row 22. Red in the last 10 seconds.
-            // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
-            int secondsLeft = Mathf.CeilToInt(arena.timeLeft);
-            string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
-            Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
-            DrawTextAtPixel(clock, 174, 22, clockColor, style, Align.Right);
+                // The timer: top-right, row 22. Red in the last 10 seconds.
+                // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
+                int secondsLeft = Mathf.CeilToInt(arena.timeLeft);
+                string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
+                Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
+                DrawTextAtPixel(clock, 174, 22, clockColor, style, Align.Right);
+            }
 
             // Popups rise and fade. Loop backwards so removing finished ones doesn't skip any.
             style.fontSize = Mathf.RoundToInt(size * 0.85f);
@@ -101,6 +106,9 @@ namespace LootLasso
         {
             float w = Screen.width * 0.8f, h = Screen.height * 0.36f;
             var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
+
+            // The winner's big portrait stands on top of the panel (drawn first, so the panel covers its feet).
+            DrawWinnerPortrait(arena, panel);
 
             // A dark see-through box behind the text. GUI.color tints everything drawn after it.
             GUI.color = new Color(0f, 0f, 0f, 0.75f);
@@ -145,6 +153,45 @@ namespace LootLasso
                 if (GUI.Button(new Rect(panel.x + w * 0.52f, by, buttonWidth, bh), "MENU", button)) menu.BackToTitle();
             }
             else if (GUI.Button(new Rect(panel.x + w * 0.25f, by, w * 0.5f, bh), "PLAY AGAIN", button)) arena.PlayAgain();
+        }
+
+        [Tooltip("Seconds per frame of the winner portrait's animation.")]
+        public float portraitFrameTime = 0.12f;
+        [Tooltip("How many art pixels of the portrait's bottom hide behind the panel's top edge.")]
+        public float portraitOverlap = 8f;
+
+        // The winning hunter (blue or red, whichever won), 96 x 96 art pixels, centred above the panel.
+        // A draw shows nobody.
+        void DrawWinnerPortrait(Arena arena, Rect panel)
+        {
+            bool youWon = arena.result == "YOU WIN!";
+            bool rivalWon = arena.result == "RIVAL WINS";
+            if (!youWon && !rivalWon) return;
+            bool winnerIsBlue = youWon ? arena.LocalIsBlue : !arena.LocalIsBlue;
+            Sprite[] frames = winnerIsBlue ? arena.winnerBlue : arena.winnerRed;
+            if (frames == null || frames.Length == 0) return;
+
+            // Which frame now: the clock divided by the frame time, wrapped around with "%" (the remainder).
+            var sprite = frames[(int)(Time.time / portraitFrameTime) % frames.Length];
+            if (sprite == null) return;
+
+            // The panel is 144 art pixels wide, so this is how many screen pixels one art pixel covers.
+            float scale = panel.width / 144f;
+            // The importer trims each frame to its drawn pixels, so frames differ in size. Its pivot is the
+            // middle of the 96 x 96 canvas, so line frames up by the pivot and nothing jitters.
+            // (sprite.pivot is measured from the frame's bottom-left; GUI y runs down, hence the flip.)
+            float canvasCentreX = panel.center.x;
+            float canvasCentreY = panel.y + (portraitOverlap - 48f) * scale; // 48 = half of 96
+            Rect pixels = sprite.textureRect;
+            var screenRect = new Rect(
+                canvasCentreX - sprite.pivot.x * scale,
+                canvasCentreY - (pixels.height - sprite.pivot.y) * scale,
+                pixels.width * scale,
+                pixels.height * scale);
+
+            Texture2D tex = sprite.texture;
+            var part = new Rect(pixels.x / tex.width, pixels.y / tex.height, pixels.width / tex.width, pixels.height / tex.height);
+            GUI.DrawTextureWithTexCoords(screenRect, tex, part);
         }
 
         enum Align { Left, Center, Right }

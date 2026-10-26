@@ -87,7 +87,7 @@ ScriptedImporter:
     addSortingGroup: 1
     addShadowCasters: 0
     generateIndividualEvents: 1
-    generateSpriteAtlas: 1
+    generateSpriteAtlas: 0
   asepriteImporterSettings:
     fileImportMode: 1
     importHiddenLayers: 0
@@ -102,7 +102,7 @@ ScriptedImporter:
     addSortingGroup: 1
     addShadowCasters: 0
     generateIndividualEvents: 1
-    generateSpriteAtlas: 1
+    generateSpriteAtlas: 0
   platformSettingsDirtyTick: 0
   singleSpriteImportData:
   - name: 
