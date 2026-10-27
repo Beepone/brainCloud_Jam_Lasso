@@ -117,6 +117,9 @@ namespace LootLasso
         public Sprite[] winnerRed;
         [Tooltip("Every sprite from UI_Components.ase (one per layer, named after it). UiKit finds them by name.")]
         public Sprite[] uiSprites;
+        [Tooltip("The pixel fonts (see PixelFont): Font_Large... (10 x 14 cells) and Font_Small... (6 x 9) in Assets/Sprites. Empty = Unity's font.")]
+        public Texture2D fontLarge;
+        public Texture2D fontSmall;
 
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
@@ -164,6 +167,7 @@ namespace LootLasso
         {
             Current = this;
             rivalHoard = Mirror(yourHoard);
+            PixelFont.Forget(); // measure the font sheets fresh (they may have been edited since last play)
         }
 
         // OnValidate runs in the editor whenever a value changes in the Inspector,
@@ -194,6 +198,8 @@ namespace LootLasso
             if (winnerBlue == null || winnerBlue.Length == 0) winnerBlue = LoadFrames("Assets/Sprites/explorer_blue_96spriteanimationtest.aseprite");
             if (winnerRed == null || winnerRed.Length == 0) winnerRed = LoadFrames("Assets/Sprites/explorer_red_96sprite.aseprite");
             if (uiSprites == null || uiSprites.Length == 0) uiSprites = LoadFrames("Assets/Sprites/UI_Components.ase"); // (order doesn't matter here)
+            if (fontLarge == null) fontLarge = FindTexture("Font_Large");
+            if (fontSmall == null) fontSmall = FindTexture("Font_Small");
             bool wasMissing = lassoTwirl == null || lassoThrow == null || lassoGrab == null || gameplayMusic == null
                            || hunterBlueBack == null || hunterBlueFront == null || hunterRedBack == null || hunterRedFront == null;
             if (lassoTwirl == null) lassoTwirl = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoTwirl.ogg");
@@ -227,6 +233,22 @@ namespace LootLasso
             frames.Sort((a, b) => FrameNumber(a).CompareTo(FrameNumber(b)));
             if (frames.Count > 0 && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
             return frames.ToArray();
+        }
+
+        // Editor only: the first PNG in Assets/Sprites whose name starts with "name" (so the font files can
+        // be renamed to Font_Small_6x9 or Font_Small_v2 and still be found). PNG only: the Aseprite source
+        // files import cropped, which would shift the font's grid.
+        Texture2D FindTexture(string name)
+        {
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets(name + " t:Texture2D", new[] { "Assets/Sprites" }))
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                if (!System.IO.Path.GetFileName(path).StartsWith(name) || !path.EndsWith(".png")) continue;
+                var texture = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (texture != null && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+                return texture;
+            }
+            return null;
         }
 
         static int FrameNumber(Sprite s)

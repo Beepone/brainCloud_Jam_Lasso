@@ -799,6 +799,8 @@ MonoBehaviour:
   - {fileID: -3934194547327117681, guid: 1b1f01f95c659b14da2de7a31de33c9f, type: 3}
   - {fileID: 3516862578110016953, guid: 1b1f01f95c659b14da2de7a31de33c9f, type: 3}
   - {fileID: 1098110535240779872, guid: 1b1f01f95c659b14da2de7a31de33c9f, type: 3}
+  fontLarge: {fileID: 2800000, guid: 367fc33e7261e12449ccef2a4084a80d, type: 3}
+  fontSmall: {fileID: 2800000, guid: 98325d7dcb7146118f263029b2b225e1, type: 3}
   matchLength: 120
   localSide: 0
   decidesEnd: 1

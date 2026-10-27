@@ -96,25 +96,25 @@ namespace LootLasso
         void OnMatchEnded()
         {
             int score = arena.FinalLocalScore; // yours, whichever side you played
-            if (!loggedIn) { scoreStatus = "Offline: score not saved"; return; }
+            if (!loggedIn) { scoreStatus = "Offline: not saved"; return; }
             if (score <= 0) { scoreStatus = ""; return; }
 
             scoreStatus = "Saving score...";
             BrainCloudManager.Instance.PostScore(leaderboardId, score,
-                () => scoreStatus = $"+{score} added to your total treasure",
-                error => scoreStatus = "Couldn't save the score");
+                () => scoreStatus = $"+{score} treasure banked",
+                error => scoreStatus = "Couldn't save score");
         }
 
         void OpenLeaderboard()
         {
             current = Screen.Leaderboard;
             topScores = null;
-            if (!loggedIn) { leaderboardStatus = "Offline: can't load the leaderboard"; return; }
+            if (!loggedIn) { leaderboardStatus = "Offline: can't load rankings"; return; }
 
             leaderboardStatus = "Loading...";
             BrainCloudManager.Instance.GetTopScores(leaderboardId, 10,
                 entries => { topScores = entries; leaderboardStatus = entries.Count == 0 ? "No scores yet. Be the first!" : ""; },
-                error => leaderboardStatus = "Couldn't load the leaderboard");
+                error => leaderboardStatus = "Couldn't load rankings");
         }
 
         // ===== Navigation (also used by the result panel) =====
@@ -199,14 +199,14 @@ namespace LootLasso
         {
             // The logo (140 x 64 art pixels), centred at row 52 of the 320-row screen, just below the notch zone.
             if (arena.titleLogo != null) DrawArtSprite(arena.titleLogo, 52f / 320f);
-            else Label("LOOT LASSO", 0.16f, size * 1.9f, new Color(1f, 0.85f, 0.2f), bold: true);
+            else Label("LOOT LASSO", 0.16f, size * 1.9f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
 
             Label($"Hi, {playerName}", 0.30f, size, Color.white);
-            if (SmallButton("change name", 0.347f, size)) { nameInput = playerName; current = Screen.NameEntry; }
+            if (SmallButton("EDIT NAME", 0.347f, size)) { nameInput = playerName; current = Screen.NameEntry; }
 
             if (Button("PLAY ONLINE", 0.45f, size)) Play();
             if (Button("PRACTICE", 0.545f, size)) Practice();
-            if (Button("LEADERBOARD", 0.64f, size)) OpenLeaderboard();
+            if (Button("RANKINGS", 0.64f, size)) OpenLeaderboard(); // (LEADERBOARD is too wide for the button in the pixel font)
             if (Button("HOW TO PLAY", 0.735f, size)) current = Screen.HowToPlay;
 
             Label(onlineStatus, 0.9f, size * 0.7f, loggedIn ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.7f, 0.5f));
@@ -214,7 +214,7 @@ namespace LootLasso
 
         void DrawSearching(int size)
         {
-            Label(net.status, 0.4f, size * 1.2f, Color.white, bold: true);
+            Label(net.status, 0.4f, size * 1.2f, Color.white, bold: true, title: true);
             // CeilToInt: counts 15, 14, ... 1 (never shows 0 while still looking).
             Label($"Playing the bot in {Mathf.CeilToInt(net.SearchTimeLeft)}...", 0.47f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
             if (Button("CANCEL", 0.6f, size))
@@ -226,8 +226,8 @@ namespace LootLasso
 
         void DrawNameEntry(int size)
         {
-            Label("What's your name?", 0.3f, size * 1.3f, Color.white, bold: true);
-            Label("It's shown on the leaderboard.", 0.36f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
+            Label("What's your name?", 0.3f, size * 1.3f, Color.white, bold: true, title: true);
+            Label("It's shown in the rankings.", 0.36f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
 
             // A text box: draws it and returns what's typed in it (we feed that back in every frame).
             // On the Field art if there is one, otherwise Unity's plain box.
@@ -256,7 +256,7 @@ namespace LootLasso
 
         void DrawLeaderboard(int size)
         {
-            Label("TOTAL TREASURE", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true);
+            Label("TOTAL TREASURE", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
 
             if (topScores != null && topScores.Count > 0)
             {
@@ -280,25 +280,28 @@ namespace LootLasso
 
         void DrawHowToPlay(int size)
         {
-            Label("HOW TO PLAY", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true);
+            Label("HOW TO PLAY", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
             string[] lines =
             {
-                "Hold and circle around your hunter",
+                // Short lines: the small pixel font fits about 28 characters across.
+                "Hold and circle your hunter",
                 "to spin up the lasso.",
                 "",
                 "Let go when it swings toward",
-                "your target. Faster spin = farther.",
+                "your target. Spin faster",
+                "to throw farther.",
                 "",
-                "Spin too wildly and it backlashes:",
-                "find a steady rhythm.",
+                "Spin too wildly and it",
+                "backlashes: keep a rhythm.",
                 "",
-                "Drag treasure back to your hoard.",
-                "Heavy treasure is slow to haul.",
+                "Drag treasure to your hoard.",
+                "Heavy treasure hauls slowly.",
                 "",
-                "Lasso the rival's hoard to STEAL.",
-                "Most treasure after 2:00 wins!",
+                "Lasso the rival's hoard to",
+                "STEAL. Most treasure after",
+                "2:00 wins!",
             };
-            for (int i = 0; i < lines.Length; i++) Label(lines[i], 0.2f + i * 0.042f, size * 0.85f, Color.white);
+            for (int i = 0; i < lines.Length; i++) Label(lines[i], 0.2f + i * 0.038f, size * 0.85f, Color.white);
 
             if (Button("BACK", 0.85f, size)) current = Screen.Title;
         }
@@ -326,8 +329,14 @@ namespace LootLasso
         static Rect Centered(float y, float width, float height) =>
             new Rect((W - W * width) / 2f, H * y - height / 2f, W * width, height);
 
-        static void Label(string text, float y, float size, Color color, bool bold = false)
+        // A line of text centred across the screen with its middle at y. In the pixel font if there is one
+        // that fits (title = the large font), otherwise Unity's font at "size".
+        static void Label(string text, float y, float size, Color color, bool bold = false, bool title = false)
         {
+            float scale = UiKit.Scale;
+            var font = PixelFont.Pick(text, W - 8f * scale, scale, large: title);
+            if (font != null) { font.Draw(text, W / 2f, H * y, TextAnchor.MiddleCenter, scale, color); return; }
+
             var style = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(size),

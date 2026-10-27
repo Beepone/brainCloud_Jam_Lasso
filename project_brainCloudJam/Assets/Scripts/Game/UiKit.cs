@@ -171,6 +171,13 @@ namespace LootLasso
             // buttons' 3-pixel shadow, so it moves down with the face when pressed.
             float shadow = size == Big ? 3f * scale : 0f;
             var face = new Rect(rect.x, drawn.y, rect.width, rect.yMax - shadow - drawn.y);
+            Color textColor = GUI.enabled ? Color.white : new Color(1f, 1f, 1f, 0.5f);
+
+            // The pixel font: large on big buttons, small on small ones, if it fits inside the rough edges.
+            var font = PixelFont.Pick(text, rect.width - 8f * scale, scale, large: size == Big);
+            if (font != null) { font.Draw(text, face, scale, textColor); return; }
+
+            // Otherwise Unity's font.
             var style = new GUIStyle(GUI.skin.label)
             {
                 fontSize = fontSize,
@@ -179,7 +186,7 @@ namespace LootLasso
                 wordWrap = false,
                 clipping = TextClipping.Overflow,
             };
-            style.normal.textColor = GUI.enabled ? Color.white : new Color(1f, 1f, 1f, 0.5f);
+            style.normal.textColor = textColor;
             GUI.Label(face, text, style);
         }
 

@@ -131,9 +131,9 @@ namespace LootLasso
             line.normal.textColor = Color.white;
 
             float row = h / 6f; // split the panel into 6 rows
-            GUI.Label(new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), arena.result, title);
-            GUI.Label(new Rect(panel.x, panel.y + row * 1.6f, w, row), arena.resultReason, line);
-            GUI.Label(new Rect(panel.x, panel.y + row * 2.4f, w, row), $"You {arena.FinalLocalScore}   -   Rival {arena.FinalOpponentScore}", line);
+            PanelText(arena.result, new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), title, large: true);
+            PanelText(arena.resultReason, new Rect(panel.x, panel.y + row * 1.6f, w, row), line, large: false);
+            PanelText($"You {arena.FinalLocalScore}  -  Rival {arena.FinalOpponentScore}", new Rect(panel.x, panel.y + row * 2.4f, w, row), line, large: false);
 
             // What happened to the score on the leaderboard (from the menu, if there is one).
             var menu = MainMenu.Current;
@@ -141,7 +141,7 @@ namespace LootLasso
             {
                 var small = new GUIStyle(line) { fontSize = Mathf.RoundToInt(size * 0.75f) };
                 small.normal.textColor = new Color(0.8f, 0.9f, 0.8f);
-                GUI.Label(new Rect(panel.x, panel.y + row * 3.2f, w, row), menu.scoreStatus, small);
+                PanelText(menu.scoreStatus, new Rect(panel.x, panel.y + row * 3.2f, w, row), small, large: false);
             }
 
             // GUI.Button draws a button and returns true on the frame it's clicked.
@@ -162,6 +162,16 @@ namespace LootLasso
                 if (UiKit.Button(new Rect(panel.center.x + gap / 2f, by, bw, bh), "MENU", UiKit.Small, font)) menu.BackToTitle();
             }
             else if (UiKit.Button(new Rect(panel.center.x - bw / 2f, by, bw, bh), "PLAY AGAIN", UiKit.Small, UiKit.FitFont("PLAY AGAIN", bw, size))) arena.PlayAgain();
+        }
+
+        // A line of the result panel, centred in rect: in the pixel font (large = the big one, for the title)
+        // if one fits inside the panel's rough edges, otherwise Unity's font in this style.
+        static void PanelText(string text, Rect rect, GUIStyle style, bool large)
+        {
+            float scale = UiKit.Scale;
+            var font = PixelFont.Pick(text, rect.width - 16f * scale, scale, large);
+            if (font != null) font.Draw(text, rect, scale, style.normal.textColor);
+            else GUI.Label(rect, text, style);
         }
 
         [Tooltip("Seconds per frame of the winner portrait's animation.")]
@@ -224,11 +234,24 @@ namespace LootLasso
             DrawTextAtScreen(text, screen, color, style, align);
         }
 
+        // How many screen pixels one art pixel of the playing field covers.
+        static float ArtScale()
+        {
+            var cam = Camera.main;
+            return cam.pixelHeight / (cam.orthographicSize * 2f) / ArtPixelsPerUnit;
+        }
+
         // Draws text at a screen position (pixels, y up from the bottom), with a dark shadow so it reads on
         // any background. Left = starts at the point, Center = centred on it, Right = ends at it.
         static void DrawTextAtScreen(string text, Vector3 screen, Color color, GUIStyle style, Align align)
         {
             // GUI's y runs DOWN from the top, while the screen's runs UP from the bottom, so flip it.
+            // The large pixel font if there is one (with a 1-pixel shadow), otherwise Unity's font.
+            float scale = ArtScale();
+            var font = PixelFont.Pick(text, Screen.width, scale, large: true);
+            var anchor = align == Align.Left ? TextAnchor.MiddleLeft : align == Align.Right ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter;
+            if (font != null) { font.Draw(text, screen.x, Screen.height - screen.y, anchor, scale, color, shadow: true); return; }
+
             float x = align == Align.Left ? screen.x : align == Align.Right ? screen.x - 400f : screen.x - 200f;
             style.alignment = align == Align.Left ? TextAnchor.MiddleLeft
                             : align == Align.Right ? TextAnchor.MiddleRight

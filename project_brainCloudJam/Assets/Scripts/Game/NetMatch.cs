@@ -114,7 +114,7 @@ namespace LootLasso
             if (bc.RTTService.IsRTTEnabled()) SearchLobby();
             else bc.RTTService.EnableRTT(
                 (json, _) => { if (phase == Phase.Connecting) SearchLobby(); },
-                (code, reason, error, _) => GiveUp("Couldn't connect: playing the bot"));
+                (code, reason, error, _) => GiveUp("Can't connect: playing the bot"));
         }
 
         void SearchLobby()
@@ -137,7 +137,7 @@ namespace LootLasso
                 new Dictionary<string, object>(), // settings
                 null,
                 null,
-                (code, reason, error, _) => GiveUp("Matchmaking failed: playing the bot"));
+                (code, reason, error, _) => GiveUp("No match: playing the bot"));
         }
 
         // Stop looking (the Cancel button, or the timeout).
