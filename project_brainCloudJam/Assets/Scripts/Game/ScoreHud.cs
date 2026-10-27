@@ -110,10 +110,18 @@ namespace LootLasso
             // The winner's big portrait stands on top of the panel (drawn first, so the panel covers its feet).
             DrawWinnerPortrait(arena, panel);
 
-            // A dark see-through box behind the text. GUI.color tints everything drawn after it.
-            GUI.color = new Color(0f, 0f, 0f, 0.75f);
-            GUI.DrawTexture(panel, Texture2D.whiteTexture);
-            GUI.color = Color.white;
+            // The Panel art, stretched to fit with its rough corners kept crisp (8 art pixels in from each edge).
+            // Without it, a dark see-through box. (GUI.color tints everything drawn after it.)
+            if (UiKit.Panel != null)
+            {
+                UiKit.DrawSliced(panel, UiKit.Panel, 8f);
+            }
+            else
+            {
+                GUI.color = new Color(0f, 0f, 0f, 0.75f);
+                GUI.DrawTexture(panel, Texture2D.whiteTexture);
+                GUI.color = Color.white;
+            }
 
             var title = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(size * 1.8f), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             var line = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.MiddleCenter };
@@ -138,21 +146,22 @@ namespace LootLasso
 
             // GUI.Button draws a button and returns true on the frame it's clicked.
             // With menus: PLAY AGAIN and MENU side by side. Without: just PLAY AGAIN.
-            var button = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold };
+            // The small 64 x 14 buttons from the UI art (UiKit), at the game's pixel scale, centred on row 5.
+            // Without the art they fall back to plain buttons of the old size.
             float by = panel.y + row * 4.4f, bh = row * 1.2f;
+            var smallArt = UiKit.Get("Normal", UiKit.Small);
+            float bw = smallArt != null ? smallArt.rect.width * UiKit.Scale : w * 0.42f;
+            if (smallArt != null) { by += (bh - smallArt.rect.height * UiKit.Scale) / 2f; bh = smallArt.rect.height * UiKit.Scale; }
             if (menu != null)
             {
-                // Two buttons share the width: shrink the text until the longer label fits. (Fonts differ between
-                // the editor and browsers, so a fixed size that fits in one can be clipped in the other.)
-                // CalcSize measures how big a piece of text would be in this style; padding = the button's inner margins.
-                float buttonWidth = w * 0.42f;
-                button.fontSize = Mathf.RoundToInt(size * 0.8f);
-                while (button.fontSize > 6 && button.CalcSize(new GUIContent("PLAY AGAIN")).x > buttonWidth - button.padding.horizontal)
-                    button.fontSize--;
-                if (GUI.Button(new Rect(panel.x + w * 0.06f, by, buttonWidth, bh), "PLAY AGAIN", button)) menu.PlayAgain(); // same mode as last time (online or practice)
-                if (GUI.Button(new Rect(panel.x + w * 0.52f, by, buttonWidth, bh), "MENU", button)) menu.BackToTitle();
+                // Two buttons side by side, a few art pixels apart. Both use the font size that fits
+                // the longer label (fonts differ between the editor and browsers).
+                float gap = smallArt != null ? 4f * UiKit.Scale : w * 0.04f;
+                int font = UiKit.FitFont("PLAY AGAIN", bw, Mathf.RoundToInt(size * 0.8f));
+                if (UiKit.Button(new Rect(panel.center.x - gap / 2f - bw, by, bw, bh), "PLAY AGAIN", UiKit.Small, font)) menu.PlayAgain(); // same mode as last time (online or practice)
+                if (UiKit.Button(new Rect(panel.center.x + gap / 2f, by, bw, bh), "MENU", UiKit.Small, font)) menu.BackToTitle();
             }
-            else if (GUI.Button(new Rect(panel.x + w * 0.25f, by, w * 0.5f, bh), "PLAY AGAIN", button)) arena.PlayAgain();
+            else if (UiKit.Button(new Rect(panel.center.x - bw / 2f, by, bw, bh), "PLAY AGAIN", UiKit.Small, UiKit.FitFont("PLAY AGAIN", bw, size))) arena.PlayAgain();
         }
 
         [Tooltip("Seconds per frame of the winner portrait's animation.")]

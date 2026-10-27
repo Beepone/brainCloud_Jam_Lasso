@@ -14,7 +14,7 @@ namespace LootLasso
     // On start it logs in to brainCloud (anonymously: the same player on this device every time). After
     // each match it adds your score to the "total treasure ever" leaderboard.
     //
-    // Drawn with OnGUI like the score display: a placeholder until the artists' UI kit arrives.
+    // Drawn with OnGUI like the score display. The buttons use the UI art (UiKit).
     // The Arena adds this component automatically (see Arena.showMenus).
     public class MainMenu : MonoBehaviour
     {
@@ -229,9 +229,17 @@ namespace LootLasso
             Label("What's your name?", 0.3f, size * 1.3f, Color.white, bold: true);
             Label("It's shown on the leaderboard.", 0.36f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
 
-            // GUI.TextField draws a text box and returns what's typed in it (we feed that back in every frame).
-            var fieldStyle = new GUIStyle(GUI.skin.textField) { fontSize = size, alignment = TextAnchor.MiddleCenter };
-            nameInput = GUI.TextField(Centered(0.44f, 0.7f, size * 2.2f), nameInput, MaxNameLength, fieldStyle);
+            // A text box: draws it and returns what's typed in it (we feed that back in every frame).
+            // On the Field art if there is one, otherwise Unity's plain box.
+            if (UiKit.Field != null)
+            {
+                nameInput = UiKit.TextField(UiKit.Centered(UiKit.Field, 0.44f), nameInput, MaxNameLength, size);
+            }
+            else
+            {
+                var fieldStyle = new GUIStyle(GUI.skin.textField) { fontSize = size, alignment = TextAnchor.MiddleCenter };
+                nameInput = GUI.TextField(Centered(0.44f, 0.7f, size * 2.2f), nameInput, MaxNameLength, fieldStyle);
+            }
 
             string trimmed = nameInput.Trim(); // Trim removes spaces at the start and end
             GUI.enabled = trimmed.Length > 0;  // grey out the button until there's a name
@@ -258,8 +266,11 @@ namespace LootLasso
                     var e = topScores[i];
                     bool isMe = e.playerId == me;
                     string who = string.IsNullOrEmpty(e.name) ? "(no name)" : e.name;
-                    // {who,-14} pads the name to 14 characters so the scores line up.
-                    Label($"{e.rank}.  {who}   {e.score}", 0.2f + i * 0.055f, size, isMe ? new Color(0.55f, 0.75f, 1f) : Color.white, bold: isMe);
+                    float y = 0.2f + i * 0.055f;
+                    // Each line sits on a Row plank. Yours is full colour, the others a little darker, so yours stands out.
+                    if (UiKit.Row != null)
+                        UiKit.DrawSprite(UiKit.Centered(UiKit.Row, y), UiKit.Row, isMe ? Color.white : new Color(0.7f, 0.7f, 0.7f));
+                    Label($"{e.rank}.  {who}   {e.score}", y, size, isMe && UiKit.Row == null ? new Color(0.55f, 0.75f, 1f) : Color.white, bold: isMe);
                 }
             }
             if (!string.IsNullOrEmpty(leaderboardStatus)) Label(leaderboardStatus, 0.45f, size, Color.white);
@@ -328,16 +339,18 @@ namespace LootLasso
             GUI.Label(Centered(y, 1f, size * 1.6f), text, style);
         }
 
+        // Buttons drawn with the UI art (see UiKit): the big 108 x 24 one, finger-sized...
         static bool Button(string text, float y, int size)
         {
-            var style = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold };
-            return GUI.Button(Centered(y, 0.6f, size * 2.4f), text, style); // finger-sized
+            Rect rect = UiKit.Centered(UiKit.Big, y, 0.6f, size * 2.4f);
+            return UiKit.Button(rect, text, UiKit.Big, UiKit.FitFont(text, rect.width, size));
         }
 
+        // ...and the small 64 x 14 one.
         static bool SmallButton(string text, float y, int size)
         {
-            var style = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(size * 0.7f) };
-            return GUI.Button(Centered(y, 0.35f, size * 1.4f), text, style);
+            Rect rect = UiKit.Centered(UiKit.Small, y, 0.35f, size * 1.4f);
+            return UiKit.Button(rect, text, UiKit.Small, UiKit.FitFont(text, rect.width, Mathf.RoundToInt(size * 0.7f)));
         }
     }
 }

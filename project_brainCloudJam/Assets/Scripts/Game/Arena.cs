@@ -115,6 +115,8 @@ namespace LootLasso
         [Tooltip("The big 96 x 96 hunters, shown above the result panel for whoever won. Frames in order.")]
         public Sprite[] winnerBlue;
         public Sprite[] winnerRed;
+        [Tooltip("Every sprite from UI_Components.ase (one per layer, named after it). UiKit finds them by name.")]
+        public Sprite[] uiSprites;
 
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
@@ -191,6 +193,7 @@ namespace LootLasso
             }
             if (winnerBlue == null || winnerBlue.Length == 0) winnerBlue = LoadFrames("Assets/Sprites/explorer_blue_96spriteanimationtest.aseprite");
             if (winnerRed == null || winnerRed.Length == 0) winnerRed = LoadFrames("Assets/Sprites/explorer_red_96sprite.aseprite");
+            if (uiSprites == null || uiSprites.Length == 0) uiSprites = LoadFrames("Assets/Sprites/UI_Components.ase"); // (order doesn't matter here)
             bool wasMissing = lassoTwirl == null || lassoThrow == null || lassoGrab == null || gameplayMusic == null
                            || hunterBlueBack == null || hunterBlueFront == null || hunterRedBack == null || hunterRedFront == null;
             if (lassoTwirl == null) lassoTwirl = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoTwirl.ogg");
