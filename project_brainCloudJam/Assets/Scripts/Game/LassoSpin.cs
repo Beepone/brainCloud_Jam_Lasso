@@ -127,6 +127,7 @@ namespace LootLasso
         // What's on the rope: the caught treasures, and where each sits relative to the loop.
         readonly List<Treasure> hooked = new List<Treasure>();
         readonly List<Vector2> hookedOffsets = new List<Vector2>();
+        readonly List<bool> hookedStolen = new List<bool>(); // was each one snatched from the other hoard? (it snaps free at the centre)
         float tightenStart, tightenTime;  // when tightening started, and how long it takes
         Vector3 loopSpinScale;   // the loop's size while spinning (from the scene)
 
@@ -189,6 +190,7 @@ namespace LootLasso
         public event System.Action<LassoSpin> Hooked; // something was just caught on the rope
         public event System.Action<LassoSpin> Bounced;                // the loop just bounced off a wall
         public event System.Action<LassoSpin, int> Stole;             // caught treasure out of the other hoard (its value)
+        public event System.Action<LassoSpin> Snapped;                // the rope snapped at the centre line, freeing a steal
         public event System.Action<LassoSpin, List<Treasure>> Delivered; // the catch just landed in our hoard
 
         // ===== Start =====
@@ -274,6 +276,7 @@ namespace LootLasso
                     returnSpeed /= 1f + caughtWeight * weightSlowdown; // heavier haul = slower pull
                     loop.position = Vector2.MoveTowards(loop.position, playerPos, returnSpeed * Time.deltaTime);
                     Haul();
+                    SnapStolen(); // a steal crossing the centre line snaps free
                     if ((Vector2)loop.position == playerPos)
                     {
                         Deliver();
@@ -606,6 +609,7 @@ namespace LootLasso
         {
             hooked.Clear();
             hookedOffsets.Clear();
+            hookedStolen.Clear();
             caughtCount = 0;
             caughtWeight = 0f;
             loopSpeed = 0f;
@@ -636,6 +640,7 @@ namespace LootLasso
             foreach (var t in arena.treasures)
             {
                 if (Vector2.Distance(t.transform.position, landing) > catchRadius) continue; // outside the loop
+                if (t.IsProtected(arena.MatchTime)) continue; // just landed or knocked loose: slips through (it's blinking)
 
                 // Catchable: loose in the field, or sitting in the OTHER player's hoard (a steal).
                 // Not catchable: already on someone's rope, or in your own hoard.
@@ -657,19 +662,23 @@ namespace LootLasso
             if (found.Count > 0) Hooked?.Invoke(this);
             hooked.Clear();
             hookedOffsets.Clear();
+            hookedStolen.Clear();
             caughtWeight = 0f;
 
             Vector2 landing = loop.position;
+            pullStart = landing;
             Rect home = HomeHoard;
             int stolenValue = 0;
             foreach (var t in found)
             {
-                if (t.state == Treasure.State.InHoard && t.hoard != home) stolenValue += t.value;
+                bool stolen = t.state == Treasure.State.InHoard && t.hoard != home;
+                if (stolen) stolenValue += t.value;
                 // On someone else's rope already (a close call decided by the host): take it off theirs.
                 if (t.hookedBy != null && t.hookedBy != this) t.hookedBy.Unhook(t);
 
                 t.Hook(this);
                 hooked.Add(t);
+                hookedStolen.Add(stolen);
                 // Where it sits inside the loop (kept within the loop, in case the decision arrived late).
                 hookedOffsets.Add(Vector2.ClampMagnitude((Vector2)t.transform.position - landing, catchRadius));
                 caughtWeight += t.weight;
@@ -681,8 +690,8 @@ namespace LootLasso
 
             if (stolenValue > 0)
             {
-                lastThrow += $" | STOLE {stolenValue}!";
-                ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f), big: true); // pink, right where it landed
+                lastThrow += $" | SNATCHED {stolenValue}!";
+                ScoreHud.ShowPopup("SNATCHED!", landing, new Color(1f, 0.45f, 0.85f), big: true); // pink, right where it landed
                 Stole?.Invoke(this, stolenValue);
             }
         }
@@ -694,8 +703,57 @@ namespace LootLasso
             if (i < 0) return;
             hooked.RemoveAt(i);
             hookedOffsets.RemoveAt(i);
+            hookedStolen.RemoveAt(i);
             caughtWeight -= t.weight;
             caughtCount = hooked.Count;
+        }
+
+        // ===== Steals snap at the centre =====
+        // Treasure snatched from the other hoard never reaches yours: when the pull brings it across the
+        // centre line, the rope snaps and it's knocked loose there, back into play for either player.
+        // (Anything caught in the field on the same throw keeps coming.)
+
+        // Where the pull started (the loop's landing point). The pull is a straight line from here to the
+        // player, so the point where it crosses the centre line is the same on both online players' screens.
+        Vector2 pullStart;
+
+        // Snaps if the loop has crossed the centre line. force = snap now wherever it is (the throw is being
+        // finished early, e.g. an online throw replaced by the next one).
+        void SnapStolen(bool force = false)
+        {
+            if (!hookedStolen.Contains(true)) return;
+            var arena = Arena.Current;
+            if (arena == null) return;
+
+            float mirror = arena.MirrorLineY;
+            Vector2 player = transform.position;
+            Vector2 loopPos = loop.position;
+            bool homeBelow = player.y < mirror;
+            bool crossed = homeBelow ? loopPos.y <= mirror : loopPos.y >= mirror;
+            if (!crossed && !force) return;
+
+            // Exactly where the pull line crosses the centre (not wherever the loop got to this frame).
+            Vector2 snapAt = loopPos;
+            float dy = player.y - pullStart.y;
+            if (crossed && Mathf.Abs(dy) > 0.001f)
+                snapAt = Vector2.Lerp(pullStart, player, Mathf.Clamp01((mirror - pullStart.y) / dy));
+
+            // Backwards, so removing items doesn't skip any.
+            for (int i = hooked.Count - 1; i >= 0; i--)
+            {
+                if (!hookedStolen[i]) continue;
+                var t = hooked[i];
+                caughtWeight -= t.weight;
+                hooked.RemoveAt(i);
+                hookedOffsets.RemoveAt(i);
+                hookedStolen.RemoveAt(i);
+                t.transform.position = snapAt;
+                t.KnockLoose(arena);
+            }
+            caughtCount = hooked.Count;
+            lastThrow += " | snapped at the centre";
+            ScoreHud.ShowPopup("KNOCKED LOOSE!", snapAt, new Color(1f, 0.45f, 0.85f));
+            Snapped?.Invoke(this);
         }
 
         // Every frame of the pull: the caught treasure rides along with the loop, bunching up as it's dragged.
@@ -713,6 +771,7 @@ namespace LootLasso
         // The loop reached you: the catch goes into your hoard.
         void Deliver()
         {
+            SnapStolen(force: true); // a steal never makes it home (normally it already snapped at the centre)
             var arena = Arena.Current;
             int gained = 0;
             foreach (var t in hooked)
@@ -725,6 +784,7 @@ namespace LootLasso
             if (hooked.Count > 0) Delivered?.Invoke(this, hooked);
             hooked.Clear();
             hookedOffsets.Clear();
+            hookedStolen.Clear();
             caughtCount = 0;
             caughtWeight = 0f;
         }

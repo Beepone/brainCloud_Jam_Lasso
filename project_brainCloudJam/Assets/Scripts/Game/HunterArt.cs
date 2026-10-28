@@ -15,6 +15,7 @@ namespace LootLasso
     //   lassomotion  swinging the lasso (loops while winding up, faster when spinning faster)
     //
     // Online, the guest's camera is turned upside down, so the sprite is turned with it to stay upright.
+    // A small pixel shadow sits at the hunter's feet (see PixelShadow).
     // The Arena adds this to every lasso. If no art is set, the placeholder circle stays.
     [RequireComponent(typeof(LassoSpin))]
     public class HunterArt : MonoBehaviour
@@ -22,6 +23,9 @@ namespace LootLasso
         [Tooltip("Swing animation speed at the slowest and fastest spin.")]
         public float minSwingSpeed = 0.6f;
         public float maxSwingSpeed = 2f;
+        [Tooltip("How far below the hunter's middle its shadow sits on screen, in art pixels (its feet).")]
+        public float shadowDrop = 7f;
+        [Range(0f, 1f)] public float shadowDarkness = 0.35f;
 
         [Header("Readouts")]
         public string animationName;
@@ -31,11 +35,13 @@ namespace LootLasso
         GameObject artPrefab; // which imported file is showing
         GameObject body;      // our copy of it
         Animator animator;
+        Transform shadow;
 
         void Start()
         {
             spin = GetComponent<LassoSpin>();
             placeholder = GetComponent<SpriteRenderer>();
+            shadow = PixelShadow.Create(transform, shadowDarkness, widthScale: 1.2f); // a bit wider than a coin's
         }
 
         // LateUpdate runs after every Update, so the lasso has already moved and changed phase this frame.
@@ -50,6 +56,7 @@ namespace LootLasso
 
             // Keep the sprite upright on screen: turn it the same way as the camera.
             if (Camera.main != null) body.transform.rotation = Camera.main.transform.rotation;
+            PixelShadow.Place(shadow, transform, shadowDrop);
 
             Animate();
         }

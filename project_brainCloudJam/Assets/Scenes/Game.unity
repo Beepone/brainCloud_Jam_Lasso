@@ -225,10 +225,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: afcbd1900df038e4db86c19d9fb0e504, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LootLasso.LassoBot
-  minThinkTime: 0.6
-  maxThinkTime: 1.4
-  aimError: 8
-  distanceError: 0.12
+  minThinkTime: 1.8
+  maxThinkTime: 3.2
+  aimError: 18
+  distanceError: 0.25
+  minReactionTime: 0.5
+  maxReactionTime: 0.9
   stealPreference: 1.5
   distanceDislike: 0.25
   handRadius: 0.8
@@ -763,6 +765,7 @@ MonoBehaviour:
   practiceRivalCoins: 0
   practiceRivalChests: 0
   showMenus: 1
+  standInGround: 1
   lassoTwirl: {fileID: 8300000, guid: 84ba041365fc69447a948346679b70f2, type: 3}
   lassoThrow: {fileID: 8300000, guid: 3b4db98f5b389934888923d0e6d595d1, type: 3}
   lassoGrab: {fileID: 8300000, guid: bf5d42948a49af2468c5723709fd13c0, type: 3}
@@ -777,7 +780,6 @@ MonoBehaviour:
   loseSting: {fileID: 8300000, guid: 78f1fae50f657b04e8b1080ec6279378, type: 3}
   uiClick: {fileID: 8300000, guid: 89791c4e63cae8d4d92f7c5d638cde7f, type: 3}
   uiHover: {fileID: 8300000, guid: a2dd14ed00e7a3746a93be6fa38d815b, type: 3}
-  timerTick: {fileID: 0}
   hunterBlueBack: {fileID: -2253911629886400664, guid: be5cf284d04bc4d448477bc4c37b3ef9, type: 3}
   hunterBlueFront: {fileID: -2253911629886400664, guid: d59f3da81bec0874b8599a6ca950e09e, type: 3}
   hunterRedBack: {fileID: -2253911629886400664, guid: 35fdd6c3dad19cb41b1e61eec18aba2a, type: 3}
@@ -812,6 +814,10 @@ MonoBehaviour:
   - {fileID: 1098110535240779872, guid: 1b1f01f95c659b14da2de7a31de33c9f, type: 3}
   fontLarge: {fileID: 2800000, guid: 367fc33e7261e12449ccef2a4084a80d, type: 3}
   fontSmall: {fileID: 2800000, guid: 98325d7dcb7146118f263029b2b225e1, type: 3}
+  hoardSpacing: 1.3
+  protectTime: 1
+  knockHopDistance: 1.2
+  knockHopTime: 0.35
   matchLength: 120
   localSide: 0
   decidesEnd: 1

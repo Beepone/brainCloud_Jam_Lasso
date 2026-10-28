@@ -132,9 +132,10 @@ namespace LootLasso
                     DrawTextAtScreen(p.text, screen, color, style, Align.Center);
                     continue;
                 }
-                // Big: starts at twice the size and snaps down to 1.3x, while tilting side to side and settling.
+                // Big: starts at 1.7x the size and snaps down to 1.3x, while tilting side to side and settling.
+                // (Not bigger: a long word like NIGHTFALL! would no longer fit across the screen.)
                 float t = age / popupTime;
-                float popScale = Mathf.Lerp(2f, 1.3f, Mathf.Clamp01(age / 0.15f));
+                float popScale = Mathf.Lerp(1.7f, 1.3f, Mathf.Clamp01(age / 0.15f));
                 float wobble = Mathf.Sin(age * 30f) * 12f * (1f - t); // degrees, dying away
                 var pivot = new Vector2(screen.x, Screen.height - screen.y);
                 var oldMatrix = GUI.matrix; // GUI.matrix turns everything drawn after it, so put it back after

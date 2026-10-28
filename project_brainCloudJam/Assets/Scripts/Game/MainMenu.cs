@@ -298,8 +298,8 @@ namespace LootLasso
                 "Heavy treasure hauls slowly.",
                 "",
                 "Lasso the rival's hoard to",
-                "STEAL. Most treasure after",
-                "2:00 wins!",
+                "knock their treasure loose.",
+                "Most treasure at 2:00 wins!",
             };
             for (int i = 0; i < lines.Length; i++) Label(lines[i], 0.2f + i * 0.038f, size * 0.85f, Color.white);
 

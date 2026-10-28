@@ -77,6 +77,7 @@ namespace LootLasso
                 lasso.Bounced += OnBounced;
                 lasso.Stole += OnStole;
                 lasso.Delivered += OnDelivered;
+                lasso.Snapped += OnSnapped;
             }
         }
 
@@ -88,6 +89,7 @@ namespace LootLasso
                 lasso.Bounced -= OnBounced;
                 lasso.Stole -= OnStole;
                 lasso.Delivered -= OnDelivered;
+                lasso.Snapped -= OnSnapped;
             }
         }
 
@@ -107,6 +109,8 @@ namespace LootLasso
             if (lasso.side == LassoSpin.Side.You) topFlashStart = Time.time;
             else bottomFlashStart = Time.time;
         }
+
+        void OnSnapped(LassoSpin lasso) => Shake(shakeBounce * 2f); // a small jolt as the rope snaps
 
         void OnDelivered(LassoSpin lasso, List<Treasure> pieces)
         {
@@ -144,6 +148,9 @@ namespace LootLasso
         }
 
         void Shake(float pixels) => shake = Mathf.Max(shake, pixels); // a smaller shake doesn't cut a big one short
+
+        // A shake from another script (e.g. nightfall, in DayNight), in art pixels.
+        public void Kick(float pixels) => Shake(pixels);
 
         // ===== Coin burst =====
 

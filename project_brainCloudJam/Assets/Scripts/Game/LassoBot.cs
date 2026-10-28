@@ -11,6 +11,10 @@ namespace LootLasso
     //   THINK   wait a moment, then pick a target: treasure in the field, or in your hoard (a steal)
     //   SPIN    circle the hand, matching the spin speed that throws that far
     //   RELEASE let go as the loop passes the right angle (with a little human-like error)
+    //
+    // It's meant to be EASIER than a new player: it thinks slowly, misjudges aim and distance, and only
+    // glances at its target now and then, so it aims where moving treasure WAS (a target that pauses is
+    // easy for it, one on the run usually gets away).
     //   WAIT    until the lasso is back, then think again
     //
     // [DefaultExecutionOrder(-10)] makes Unity run this script's Update before other scripts' (default 0),
@@ -22,12 +26,15 @@ namespace LootLasso
     {
         [Header("Difficulty")]
         [Tooltip("Pause between throws, in seconds (a random time between min and max).")]
-        public float minThinkTime = 0.9f;
-        public float maxThinkTime = 1.8f;
+        public float minThinkTime = 1.8f;
+        public float maxThinkTime = 3.2f;
         [Tooltip("How many degrees off the bot's release can be. Higher = misses more.")]
-        public float aimError = 12f;
-        [Tooltip("How far off its distance can be, as a fraction (0.12 = up to 12% short or long).")]
-        public float distanceError = 0.12f;
+        public float aimError = 18f;
+        [Tooltip("How far off its distance can be, as a fraction (0.25 = up to 25% short or long).")]
+        public float distanceError = 0.25f;
+        [Tooltip("Seconds between the bot's glances at its target. It aims at where it last saw it, so moving treasure often gets away.")]
+        public float minReactionTime = 0.5f;
+        public float maxReactionTime = 0.9f;
         [Tooltip("How much more the bot likes stealing from your hoard than grabbing from the field (1 = no preference).")]
         public float stealPreference = 1.5f;
         [Tooltip("How much the bot prefers close targets. Higher = it mostly goes for nearby treasure.")]
@@ -57,6 +64,8 @@ namespace LootLasso
         float angleError;      // this throw's aim error (picked once per throw)
         float distanceFactor;  // this throw's distance error (picked once per throw)
         float lastAngleToRelease;
+        Vector2 seenTargetPos; // where the bot last looked at its target
+        float nextGlance;      // Time.time of its next look
         bool wasPressed;
 
         void Awake()
@@ -138,6 +147,7 @@ namespace LootLasso
                 bool loose = t.state == Treasure.State.Free;
                 bool steal = t.state == Treasure.State.InHoard && t.hoard != home;
                 if (!loose && !steal) continue;
+                if (t.IsProtected(arena.MatchTime)) continue; // blinking: a throw would pass straight through it
 
                 float travel = TravelDistance(me, t.transform.position);
                 if (float.IsNaN(travel) || travel > spin.maxRange * 0.95f) continue; // out of reach
@@ -152,6 +162,11 @@ namespace LootLasso
 
             target = best;
             targetName = best != null ? best.name : "";
+            if (best != null)
+            {
+                seenTargetPos = best.transform.position;
+                nextGlance = Time.time + Random.Range(minReactionTime, maxReactionTime);
+            }
             angleError = Random.Range(-aimError, aimError);
             distanceFactor = 1f + Random.Range(-distanceError, distanceError);
             return best != null;
@@ -169,7 +184,13 @@ namespace LootLasso
                            || (target.state == Treasure.State.InHoard && target.hoard == arena.rivalHoard);
             if (targetGone || Time.time - spinStart > 5f) return Mathf.Abs(spin.loopSpeed) > spin.minSpinSpeed;
 
-            Vector2 targetPos = target.transform.position;
+            // Only now and then does it look again at where the target is. In between it aims at the old spot.
+            if (Time.time >= nextGlance)
+            {
+                seenTargetPos = target.transform.position;
+                nextGlance = Time.time + Random.Range(minReactionTime, maxReactionTime);
+            }
+            Vector2 targetPos = seenTargetPos;
             float orbit = Mathf.Clamp(handRadius, spin.minOrbitRadius, spin.maxOrbitRadius);
 
             // How fast must the loop spin to throw exactly as far as the target? (LassoSpin's distance math, backwards.)

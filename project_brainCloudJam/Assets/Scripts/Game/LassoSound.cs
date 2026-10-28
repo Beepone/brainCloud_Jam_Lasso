@@ -57,6 +57,7 @@ namespace LootLasso
             spin.Bounced += OnBounced;
             spin.Stole += OnStole;
             spin.Delivered += OnDelivered;
+            spin.Snapped += OnSnapped;
 
             var arena = Arena.Current;
             // Three AudioSources (speakers) on this object: one per sound, so they never cut each other off.
@@ -74,6 +75,7 @@ namespace LootLasso
             spin.Bounced -= OnBounced;
             spin.Stole -= OnStole;
             spin.Delivered -= OnDelivered;
+            spin.Snapped -= OnSnapped;
         }
 
         AudioSource MakeSource(AudioClip clip, bool loop)
@@ -141,6 +143,13 @@ namespace LootLasso
         {
             var arena = Arena.Current;
             if (arena != null && arena.ropeBounce != null) effectSource.PlayOneShot(arena.ropeBounce, bounceVolume * Loudness);
+        }
+
+        // The rope snapping at the centre: the rope's thwap, a little louder.
+        void OnSnapped(LassoSpin _)
+        {
+            var arena = Arena.Current;
+            if (arena != null && arena.ropeBounce != null) effectSource.PlayOneShot(arena.ropeBounce, Mathf.Min(1f, bounceVolume * 1.4f));
         }
 
         void OnStole(LassoSpin _, int value)

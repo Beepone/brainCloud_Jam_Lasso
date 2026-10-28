@@ -91,6 +91,8 @@ namespace LootLasso
         [Header("Menus")]
         [Tooltip("Show the title screen and menus. Off = jump straight into a match (handy for quick testing).")]
         public bool showMenus = true;
+        [Tooltip("Draw a desert floor made in code (StandInGround). Untick when the artists' ground art is in.")]
+        public bool standInGround = true;
 
         // An "event" lets other scripts ask to be told when something happens. The menu uses this
         // to save your score to the leaderboard. "System.Action" = a method with no inputs.
@@ -130,6 +132,16 @@ namespace LootLasso
         [Tooltip("The pixel fonts (see PixelFont): Font_Large... (10 x 14 cells) and Font_Small... (6 x 9) in Assets/Sprites. Empty = Unity's font.")]
         public Texture2D fontLarge;
         public Texture2D fontSmall;
+
+        [Header("Hoards and stealing")]
+        [Tooltip("Distance between the spots in a hoard. About a loop's width, so one throw can't scoop up the whole hoard.")]
+        public float hoardSpacing = 1.3f;
+        [Tooltip("Seconds that treasure can't be caught after landing in a hoard or being knocked loose. It blinks meanwhile.")]
+        public float protectTime = 1f;
+        [Tooltip("How far knocked-loose treasure hops away from where the rope snapped.")]
+        public float knockHopDistance = 1.2f;
+        [Tooltip("How long that hop takes, in seconds.")]
+        public float knockHopTime = 0.35f;
 
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
@@ -308,6 +320,8 @@ namespace LootLasso
             if (showMenus && GetComponent<MainMenu>() == null) gameObject.AddComponent<MainMenu>();
             if (GetComponent<GameMusic>() == null) gameObject.AddComponent<GameMusic>();
             if (GetComponent<Juice>() == null) gameObject.AddComponent<Juice>();
+            if (GetComponent<DayNight>() == null) gameObject.AddComponent<DayNight>();
+            if (standInGround && GetComponent<StandInGround>() == null) gameObject.AddComponent<StandInGround>();
             // Every lasso gets its sounds and its hunter art.
             foreach (var lasso in FindObjectsByType<LassoSpin>())
             {

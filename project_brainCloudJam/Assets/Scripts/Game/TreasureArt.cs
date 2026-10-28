@@ -12,11 +12,18 @@ namespace LootLasso
     //
     // "Left" and "right" are worked out on SCREEN, not in the world: the online guest's camera is turned
     // around, so world-left is screen-right for them. The sprite is also turned with the camera to stay upright.
+    //
+    // It also gives the treasure a small pixel shadow on the ground, a few pixels below it on screen, so the
+    // flying coins look like they're flying.
     [RequireComponent(typeof(Treasure))]
     public class TreasureArt : MonoBehaviour
     {
         [Tooltip("Moving slower than this (world units per second) counts as standing still.")]
         public float stillSpeed = 0.05f;
+
+        [Tooltip("How far below the treasure its shadow sits on screen, in art pixels.")]
+        public float shadowDrop = 7f;
+        [Range(0f, 1f)] public float shadowDarkness = 0.35f;
 
         [Header("Readouts")]
         public string animationName;
@@ -26,6 +33,7 @@ namespace LootLasso
         Animator animator;
         Transform art;
         Vector2 lastPosition;
+        Transform shadow;
 
         void Start()
         {
@@ -33,13 +41,19 @@ namespace LootLasso
             animator = GetComponentInChildren<Animator>(); // on the art copy (the child object)
             if (animator != null) art = animator.transform;
             lastPosition = transform.position;
+
+            shadow = PixelShadow.Create(transform, shadowDarkness);
         }
 
         void LateUpdate()
         {
             if (animator == null || !animator.isInitialized) return;
             var cam = Camera.main;
-            if (cam != null) art.rotation = cam.transform.rotation; // upright on screen
+            if (cam != null)
+            {
+                art.rotation = cam.transform.rotation; // upright on screen
+                PixelShadow.Place(shadow, transform, shadowDrop);
+            }
 
             // How it moved this frame, and how much of that was to the right ON SCREEN. The camera's "right"
             // direction points to screen-right in the world (flipped for the guest), and the dot product

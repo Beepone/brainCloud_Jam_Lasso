@@ -27,6 +27,11 @@ namespace LootLasso
         [Tooltip("Which hoard it's in, while InHoard. (A Rect is just the area; the Arena knows whose it is.)")]
         public Rect hoard;
         public int timesStored; // bumped each time it's put in a hoard, to vary its spot there
+        [Tooltip("Match time until which it can't be caught (just landed in a hoard, or just knocked loose).")]
+        public float protectedUntil;
+
+        // Can't be caught right now? (Uses the shared match clock, so both online players agree.)
+        public bool IsProtected(float matchTime) => matchTime < protectedUntil;
 
         // ----- Being caught, dropped and stored -----
 
@@ -48,19 +53,97 @@ namespace LootLasso
             StartWander(arena.matchSeed, arena.field, arena.MatchTime);
         }
 
-        // Delivered to a hoard: sits at a spot picked from the shared seed, so online both players
-        // put it in exactly the same place (which matters when someone tries to steal it).
+        // Delivered to a hoard. The hoard has a grid of spots about a loop's width apart (two staggered rows),
+        // and it takes the free spot FARTHEST from the treasure already there, so the hoard fills evenly
+        // and one throw can't scoop up most of it. Everything here comes from the hoard's contents and the
+        // shared seed, so online both players put it in the same place.
         public void StoreIn(Rect hoardArea, Arena arena)
         {
             hookedBy = null;
             state = State.InHoard;
             hoard = hoardArea;
+            protectedUntil = arena.MatchTime + arena.protectTime; // can't be stolen straight away
             var rng = new Prng(arena.matchSeed * 31 + id * 977 + timesStored * 7919);
             timesStored++;
-            const float margin = 0.3f; // keep it a little away from the hoard's edges
-            transform.position = new Vector2(
-                rng.Range(hoardArea.xMin + margin, hoardArea.xMax - margin),
-                rng.Range(hoardArea.yMin + margin, hoardArea.yMax - margin));
+
+            const float margin = 0.35f; // keep spots a little away from the hoard's edges
+            float spacing = Mathf.Max(arena.hoardSpacing, 0.1f);
+            float usableWidth = hoardArea.width - margin * 2f;
+            int cols = Mathf.Max(1, Mathf.FloorToInt(usableWidth / spacing) + 1);
+            int rows = hoardArea.height - margin * 2f > spacing * 0.4f ? 2 : 1;
+
+            Vector2 best = hoardArea.center;
+            float bestRoom = -1f;
+            for (int row = 0; row < rows; row++)
+                for (int col = 0; col < cols; col++)
+                {
+                    // The second row is shifted half a spot sideways, like bricks, so the rows don't line up.
+                    float shift = rows == 2 && row == 1 ? 0.5f : 0f;
+                    float fx = cols == 1 ? 0.5f : (col + shift * (col < cols - 1 ? 1f : 0f)) / (cols - 1);
+                    float fy = rows == 1 ? 0.5f : row;
+                    var spot = new Vector2(
+                        hoardArea.xMin + margin + usableWidth * fx,
+                        Mathf.Lerp(hoardArea.yMin + margin, hoardArea.yMax - margin, fy));
+
+                    // How much room this spot has: the distance to the nearest treasure already in this hoard.
+                    float room = float.MaxValue;
+                    foreach (var other in arena.treasures)
+                    {
+                        if (other == this || other.state != State.InHoard || other.hoard != hoardArea) continue;
+                        room = Mathf.Min(room, Vector2.Distance(spot, other.transform.position));
+                    }
+                    room += rng.Range(0f, 0.01f); // breaks ties between equally empty spots, from the shared seed
+                    if (room > bestRoom) { bestRoom = room; best = spot; }
+                }
+
+            // A little wobble so it doesn't look like a perfect grid.
+            best += new Vector2(rng.Range(-0.12f, 0.12f), rng.Range(-0.08f, 0.08f));
+            transform.position = best;
+        }
+
+        // Knocked loose (a steal's rope snapped at the centre line): hops a short way in a direction picked
+        // from the shared seed, then wanders again. It's protected (and blinks) for a moment, so nobody can
+        // catch it the instant it lands.
+        public void KnockLoose(Arena arena)
+        {
+            hookedBy = null;
+            float now = arena.MatchTime;
+            StartWander(arena.matchSeed, arena.field, now);
+
+            // The hop: the first wander segment, a quick dash.
+            var hopRng = new Prng(arena.matchSeed * 13 + id * 7727 + restarts * 31);
+            float angle = hopRng.Range(0f, Mathf.PI * 2f);
+            Vector2 target = from + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * arena.knockHopDistance;
+            target.x = Mathf.Clamp(target.x, bounds.xMin, bounds.xMax);
+            target.y = Mathf.Clamp(target.y, bounds.yMin, bounds.yMax);
+            to = target;
+            segEnd = segStart + Mathf.Max(arena.knockHopTime, 0.05f);
+
+            protectedUntil = now + arena.protectTime;
+        }
+
+        // ----- Blinking while protected -----
+        // The parts that blink: the art's sprites (not its shadow, and not the hidden placeholder).
+        SpriteRenderer[] blinkParts;
+        bool blinking;
+
+        void LateUpdate()
+        {
+            var arena = Arena.Current;
+            bool protect = arena != null && arena.isPlaying && IsProtected(arena.MatchTime);
+            if (!protect && !blinking) return;
+
+            if (blinkParts == null)
+            {
+                var parts = new System.Collections.Generic.List<SpriteRenderer>();
+                foreach (var sr in GetComponentsInChildren<SpriteRenderer>())
+                    if (sr.enabled && sr.gameObject.name != "Shadow") parts.Add(sr);
+                blinkParts = parts.ToArray();
+            }
+            // On and off ten times a second while protected; always on afterwards.
+            bool visible = !protect || Mathf.Repeat(Time.time * 10f, 1f) < 0.5f;
+            foreach (var sr in blinkParts) if (sr != null) sr.enabled = visible;
+            blinking = protect;
         }
 
         // ----- Wandering -----
