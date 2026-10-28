@@ -187,6 +187,9 @@ namespace LootLasso
         public bool IsWindingUp => phase == Phase.WindUp;
         public bool IsFlying => phase == Phase.Flying;
         public event System.Action<LassoSpin> Hooked; // something was just caught on the rope
+        public event System.Action<LassoSpin> Bounced;                // the loop just bounced off a wall
+        public event System.Action<LassoSpin, int> Stole;             // caught treasure out of the other hoard (its value)
+        public event System.Action<LassoSpin, List<Treasure>> Delivered; // the catch just landed in our hoard
 
         // ===== Start =====
         // Unity calls Start once, before the first Update.
@@ -450,6 +453,7 @@ namespace LootLasso
                     loop.position = target;
                     step -= toTarget;
                     flightPoint++;
+                    if (flightPoint < flightPath.Count) Bounced?.Invoke(this); // a corner with more path after it = a wall
                 }
             }
 
@@ -679,6 +683,7 @@ namespace LootLasso
             {
                 lastThrow += $" | STOLE {stolenValue}!";
                 ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f)); // pink, right where it landed
+                Stole?.Invoke(this, stolenValue);
             }
         }
 
@@ -717,6 +722,7 @@ namespace LootLasso
                 ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over each piece as it lands
             }
             if (gained > 0) lastThrow += $" | +{gained}";
+            if (hooked.Count > 0) Delivered?.Invoke(this, hooked);
             hooked.Clear();
             hookedOffsets.Clear();
             caughtCount = 0;

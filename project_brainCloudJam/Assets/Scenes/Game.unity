@@ -767,6 +767,12 @@ MonoBehaviour:
   lassoThrow: {fileID: 8300000, guid: 3b4db98f5b389934888923d0e6d595d1, type: 3}
   lassoGrab: {fileID: 8300000, guid: bf5d42948a49af2468c5723709fd13c0, type: 3}
   gameplayMusic: {fileID: 8300000, guid: 5eb2d0d13724cf447a672a9847613226, type: 3}
+  delivered: {fileID: 8300000, guid: 58ca18ea097bbca4297913b1abdc96f0, type: 3}
+  ropeBounce: {fileID: 8300000, guid: a1dd30bced38e924f85b1f010d0f5959, type: 3}
+  playerSteals: {fileID: 8300000, guid: a5b12a93fe984c64592ea67268a2f3a1, type: 3}
+  rivalSteals: {fileID: 8300000, guid: 13846e42e0044a941868be7d308e1c8e, type: 3}
+  winSting: {fileID: 8300000, guid: a75fc783a679a284a8f05830a616122e, type: 3}
+  loseSting: {fileID: 8300000, guid: 78f1fae50f657b04e8b1080ec6279378, type: 3}
   hunterBlueBack: {fileID: -2253911629886400664, guid: be5cf284d04bc4d448477bc4c37b3ef9, type: 3}
   hunterBlueFront: {fileID: -2253911629886400664, guid: d59f3da81bec0874b8599a6ca950e09e, type: 3}
   hunterRedBack: {fileID: -2253911629886400664, guid: 35fdd6c3dad19cb41b1e61eec18aba2a, type: 3}

@@ -101,6 +101,12 @@ namespace LootLasso
         public AudioClip lassoThrow;
         public AudioClip lassoGrab;
         public AudioClip gameplayMusic; // loops during a match (GameMusic.cs)
+        public AudioClip delivered;      // treasure lands in a hoard (LassoSound.cs)
+        public AudioClip ropeBounce;     // the loop bounces off a wall
+        public AudioClip playerSteals;   // YOU stole from the rival's hoard
+        public AudioClip rivalSteals;    // the rival stole from yours
+        public AudioClip winSting;       // the result panel, won (GameMusic.cs)
+        public AudioClip loseSting;      // ...lost
 
         [Header("Hunter art (filled in from Assets/Sprites automatically in the editor)")]
         [Tooltip("The imported Aseprite files. Back = seen from behind (you), front = facing you (the rival).")]
@@ -206,6 +212,12 @@ namespace LootLasso
             if (lassoThrow == null) lassoThrow = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoThrow.ogg");
             if (lassoGrab == null) lassoGrab = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoGrab.ogg");
             if (gameplayMusic == null) gameplayMusic = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/GameplayTrack.ogg");
+            if (delivered == null) delivered = LoadSound("Delivered", ref wasMissing);
+            if (ropeBounce == null) ropeBounce = LoadSound("RopeBounce", ref wasMissing);
+            if (playerSteals == null) playerSteals = LoadSound("PlayerStealsFromRival", ref wasMissing);
+            if (rivalSteals == null) rivalSteals = LoadSound("RivalStealsFromPlayer", ref wasMissing);
+            if (winSting == null) winSting = LoadSound("WinSting", ref wasMissing);
+            if (loseSting == null) loseSting = LoadSound("LoseSting", ref wasMissing);
             // An Aseprite file's main asset is a ready-made object (sprite + Animator with one state per tag).
             if (hunterBlueBack == null) hunterBlueBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_backsprite.aseprite");
             if (hunterBlueFront == null) hunterBlueFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_frontsprite.aseprite");
@@ -233,6 +245,14 @@ namespace LootLasso
             frames.Sort((a, b) => FrameNumber(a).CompareTo(FrameNumber(b)));
             if (frames.Count > 0 && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
             return frames.ToArray();
+        }
+
+        // Editor only: Assets/SFX/<name>.ogg. Sets wasMissing when it finds one, so the scene gets saved with it.
+        AudioClip LoadSound(string name, ref bool wasMissing)
+        {
+            var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/SFX/{name}.ogg");
+            if (clip != null) wasMissing = true;
+            return clip;
         }
 
         // Editor only: the first PNG in Assets/Sprites whose name starts with "name" (so the font files can
