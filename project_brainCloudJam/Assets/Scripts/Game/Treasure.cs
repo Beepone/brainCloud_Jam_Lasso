@@ -195,12 +195,11 @@ namespace LootLasso
             bool hasArt = kind.animatedArt != null || kind.sprite != null;
             go.transform.localScale = hasArt ? Vector3.one : Vector3.one * kind.size;
 
-            // Animated art: a copy of the imported file as a child, with TreasureArt picking the animation.
+            // Animated art: a copy of the imported file as a child (TreasureArt is added below to animate it).
             if (kind.animatedArt != null)
             {
                 var art = Instantiate(kind.animatedArt, go.transform);
                 art.transform.localPosition = Vector3.zero;
-                go.AddComponent<TreasureArt>();
             }
 
             var sr = go.AddComponent<SpriteRenderer>();
@@ -216,6 +215,10 @@ namespace LootLasso
             t.weight = kind.weight;
             t.speed = kind.speed;
             t.StartWander(arena.matchSeed, arena.field, startTime);
+
+            // Added after the Treasure on purpose: TreasureArt has [RequireComponent(typeof(Treasure))], so adding
+            // it first made Unity add a blank second Treasure, and the art read that one's state (always Free).
+            if (kind.animatedArt != null) go.AddComponent<TreasureArt>();
             return t;
         }
 
