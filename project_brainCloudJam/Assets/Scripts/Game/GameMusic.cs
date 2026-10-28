@@ -29,6 +29,15 @@ namespace LootLasso
         public bool menuStartPlayed; // the menu's start track has been heard (or skipped)
 
         AudioSource source;      // the match music
+        bool wasPlaying;         // was a match running last frame? (to spot a new one starting)
+
+        // Where the match music is right now, in seconds from its start, or -1 if it isn't playing.
+        // The ending effects (Juice) and the final countdown (ScoreHud) follow this, so they land on the beat.
+        public float SongTime => source != null && source.isPlaying && source.clip != null
+            ? (float)source.timeSamples / source.clip.frequency : -1f;
+
+        public static GameMusic Current { get; private set; }
+        void Awake() => Current = this;
         AudioSource menuStart;   // the menu's start track, played once
         AudioSource menuLoop;    // the menu's loop, after that
         AudioSource stingSource;
@@ -83,10 +92,20 @@ namespace LootLasso
         void UpdateMatchMusic()
         {
             if (source.clip == null) return;
+            bool newMatch = arena.isPlaying && !wasPlaying;
+            wasPlaying = arena.isPlaying;
             if (arena.isPlaying)
             {
-                // A new match: start from the top.
-                if (!source.isPlaying) { source.volume = 0f; source.Play(); }
+                // A new match: start the song at the match clock (0, or a little in if an online match
+                // started a moment ago), even if the last match's music is still fading out. The song is
+                // exactly as long as the match, so its ending lines up with the final seconds.
+                if (newMatch)
+                {
+                    source.Stop();
+                    source.volume = 0f;
+                    source.time = Mathf.Clamp(arena.MatchTime, 0f, source.clip.length - 0.1f);
+                    source.Play();
+                }
                 FadeTo(source, volume, fadeInTime);
             }
             else if (source.isPlaying)

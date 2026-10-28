@@ -307,6 +307,7 @@ namespace LootLasso
             if (GetComponent<ScoreHud>() == null) gameObject.AddComponent<ScoreHud>();
             if (showMenus && GetComponent<MainMenu>() == null) gameObject.AddComponent<MainMenu>();
             if (GetComponent<GameMusic>() == null) gameObject.AddComponent<GameMusic>();
+            if (GetComponent<Juice>() == null) gameObject.AddComponent<Juice>();
             // Every lasso gets its sounds and its hunter art.
             foreach (var lasso in FindObjectsByType<LassoSpin>())
             {
@@ -474,6 +475,10 @@ namespace LootLasso
         // Is the hunter on this side blue this match? And the player at this computer?
         public bool IsBlue(LassoSpin.Side side) => (side == LassoSpin.Side.You) == bottomIsBlue;
         public bool LocalIsBlue => IsBlue(localSide);
+
+        // A hoard's zone (world side) and its normal colour, for effects like the steal flash (Juice.cs).
+        public SpriteRenderer HoardZone(LassoSpin.Side side) => side == LassoSpin.Side.You ? bottomZone : topZone;
+        public Color HoardZoneColor(LassoSpin.Side side) => IsBlue(side) ? BlueZoneColor : RedZoneColor;
 
         void DrawZones()
         {

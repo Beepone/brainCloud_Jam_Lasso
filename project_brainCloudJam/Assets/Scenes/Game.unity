@@ -362,7 +362,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0.3018868, g: 0.3018868, b: 0.3018868, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -777,6 +777,7 @@ MonoBehaviour:
   loseSting: {fileID: 8300000, guid: 78f1fae50f657b04e8b1080ec6279378, type: 3}
   uiClick: {fileID: 8300000, guid: 89791c4e63cae8d4d92f7c5d638cde7f, type: 3}
   uiHover: {fileID: 8300000, guid: a2dd14ed00e7a3746a93be6fa38d815b, type: 3}
+  timerTick: {fileID: 0}
   hunterBlueBack: {fileID: -2253911629886400664, guid: be5cf284d04bc4d448477bc4c37b3ef9, type: 3}
   hunterBlueFront: {fileID: -2253911629886400664, guid: d59f3da81bec0874b8599a6ca950e09e, type: 3}
   hunterRedBack: {fileID: -2253911629886400664, guid: 35fdd6c3dad19cb41b1e61eec18aba2a, type: 3}

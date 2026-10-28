@@ -682,7 +682,7 @@ namespace LootLasso
             if (stolenValue > 0)
             {
                 lastThrow += $" | STOLE {stolenValue}!";
-                ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f)); // pink, right where it landed
+                ScoreHud.ShowPopup("STOLEN!", landing, new Color(1f, 0.45f, 0.85f), big: true); // pink, right where it landed
                 Stole?.Invoke(this, stolenValue);
             }
         }

@@ -29,18 +29,37 @@ namespace LootLasso
             public Vector2 worldPos;
             public Color color;
             public float startTime;
+            public bool big; // pops in large and wobbles (STOLEN!)
         }
 
         // "static" so any script can call ScoreHud.ShowPopup(...) without needing a reference to the HUD.
         static readonly List<Popup> popups = new List<Popup>();
 
-        public static void ShowPopup(string text, Vector2 worldPos, Color color)
+        public static void ShowPopup(string text, Vector2 worldPos, Color color, bool big = false)
         {
-            popups.Add(new Popup { text = text, worldPos = worldPos, color = color, startTime = Time.time });
+            popups.Add(new Popup { text = text, worldPos = worldPos, color = color, startTime = Time.time, big = big });
+        }
+
+        // ----- Score bumps -----
+        // When treasure lands in a hoard, that player's score text jumps up in size and settles back.
+        static float yourBumpTime = -99f, rivalBumpTime = -99f;
+        const float BumpTime = 0.3f;
+
+        // local = the score of the player at this computer ("YOU"), otherwise the rival's.
+        public static void Bump(bool local)
+        {
+            if (local) yourBumpTime = Time.time; else rivalBumpTime = Time.time;
+        }
+
+        // How big the text is right now: 1.4x just after a bump, easing back to 1x.
+        static float BumpScale(float since)
+        {
+            float t = Mathf.Clamp01(since / BumpTime);
+            return 1f + 0.4f * (1f - t) * (1f - t); // (1 - t) squared: fast at first, then gently settles
         }
 
         // Scripts keep static lists between plays (domain reload is off in this project), so clear it on start.
-        void Awake() => popups.Clear();
+        void Awake() { popups.Clear(); yourBumpTime = rivalBumpTime = -99f; }
 
         // Unity calls OnGUI to draw immediate-mode UI. It can run several times a frame, which is fine here.
         void OnGUI()
@@ -65,21 +84,34 @@ namespace LootLasso
             // Positions are in ART PIXELS of the 180 x 320 screen (see docs/art/UITemplates.md), not world
             // positions, so they stay in the same place on screen even when the camera is turned around.
             // Your score: centred in the strip under your hoard (row 301).
-            DrawTextAtPixel($"YOU  {yourScore}", 90, 301, YourColor, style, Align.Center);
+            DrawTextAtPixel($"YOU  {yourScore}", 90, 301, YourColor, style, Align.Center, BumpScale(Time.time - yourBumpTime));
 
             // The rival's score and the timer, top row. Hidden once the match is over: the result panel shows
             // both scores, and the winner portrait stands up there.
             if (!arena.isOver)
             {
                 // The rival's score: top-left, row 22 (below the ~17 px where phone notches sit).
-                DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left);
+                DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left, BumpScale(Time.time - rivalBumpTime));
 
                 // The timer: top-right, row 22. Red in the last 10 seconds.
                 // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
                 int secondsLeft = Mathf.CeilToInt(arena.timeLeft);
+                // How long the current number has been showing (the number minus the exact time left).
+                float shown = secondsLeft - arena.timeLeft;
+                // The music's finale (its last 16 beats): the clock counts 0:08 to 0:01 ON THE BEAT instead,
+                // each number landing on a kick (see Juice.FinalCountdown). Not exact seconds, but nobody can tell.
+                if (Juice.Current != null && Juice.Current.FinalCountdown(out int beatNumber, out float beatShown))
+                {
+                    secondsLeft = beatNumber;
+                    shown = beatShown;
+                }
                 string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
                 Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
-                DrawTextAtPixel(clock, 174, 22, clockColor, style, Align.Right);
+                // In the last 10 seconds it also pulses: big each time the number changes, shrinking back over
+                // a third of a second.
+                float pulse = 1f;
+                if (secondsLeft <= 10 && arena.isPlaying) pulse = 1f + 0.5f * Mathf.Clamp01(1f - shown / 0.33f);
+                DrawTextAtPixel(clock, 174, 22, clockColor, style, Align.Right, pulse);
             }
 
             // Popups rise and fade. Loop backwards so removing finished ones doesn't skip any.
@@ -95,7 +127,20 @@ namespace LootLasso
                 // Float up the SCREEN (not the world, which is upside down for the online guest).
                 Vector3 screen = Camera.main.WorldToScreenPoint(p.worldPos);
                 screen.y += age * Screen.height * 0.06f;
-                DrawTextAtScreen(p.text, screen, color, style, Align.Center);
+                if (!p.big)
+                {
+                    DrawTextAtScreen(p.text, screen, color, style, Align.Center);
+                    continue;
+                }
+                // Big: starts at twice the size and snaps down to 1.3x, while tilting side to side and settling.
+                float t = age / popupTime;
+                float popScale = Mathf.Lerp(2f, 1.3f, Mathf.Clamp01(age / 0.15f));
+                float wobble = Mathf.Sin(age * 30f) * 12f * (1f - t); // degrees, dying away
+                var pivot = new Vector2(screen.x, Screen.height - screen.y);
+                var oldMatrix = GUI.matrix; // GUI.matrix turns everything drawn after it, so put it back after
+                GUIUtility.RotateAroundPivot(wobble, pivot);
+                DrawTextAtScreen(p.text, screen, color, style, Align.Center, popScale);
+                GUI.matrix = oldMatrix;
             }
 
             if (arena.isOver) DrawResultPanel(arena, size);
@@ -218,7 +263,7 @@ namespace LootLasso
         const float ArtPixelsPerUnit = 23f; // the map art's scale (see docs/art/MapTemplate.md)
 
         // Draws text at an art pixel of the 180 x 320 screen (column, row counted from the top-left).
-        static void DrawTextAtPixel(string text, float column, float row, Color color, GUIStyle style, Align align)
+        static void DrawTextAtPixel(string text, float column, float row, Color color, GUIStyle style, Align align, float sizeScale = 1f)
         {
             // The 180 x 320 play area sits in the middle of the screen, but the screen may be wider or taller
             // (a landscape browser window shows extra field at the sides). So measure from the play area,
@@ -231,7 +276,7 @@ namespace LootLasso
                 centre.x + (column - 90f) * pixelsPerArtPixel,  // 90 = half of 180
                 centre.y + (160f - row) * pixelsPerArtPixel,    // 160 = half of 320; rows count down from the top
                 0f);
-            DrawTextAtScreen(text, screen, color, style, align);
+            DrawTextAtScreen(text, screen, color, style, align, sizeScale);
         }
 
         // How many screen pixels one art pixel of the playing field covers.
@@ -243,11 +288,12 @@ namespace LootLasso
 
         // Draws text at a screen position (pixels, y up from the bottom), with a dark shadow so it reads on
         // any background. Left = starts at the point, Center = centred on it, Right = ends at it.
-        static void DrawTextAtScreen(string text, Vector3 screen, Color color, GUIStyle style, Align align)
+        // sizeScale: bigger or smaller than normal (for bumps, pulses and pops).
+        static void DrawTextAtScreen(string text, Vector3 screen, Color color, GUIStyle style, Align align, float sizeScale = 1f)
         {
             // GUI's y runs DOWN from the top, while the screen's runs UP from the bottom, so flip it.
             // The large pixel font if there is one (with a 1-pixel shadow), otherwise Unity's font.
-            float scale = ArtScale();
+            float scale = ArtScale() * sizeScale;
             var font = PixelFont.Pick(text, Screen.width, scale, large: true);
             var anchor = align == Align.Left ? TextAnchor.MiddleLeft : align == Align.Right ? TextAnchor.MiddleRight : TextAnchor.MiddleCenter;
             if (font != null) { font.Draw(text, screen.x, Screen.height - screen.y, anchor, scale, color, shadow: true); return; }
