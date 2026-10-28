@@ -233,6 +233,7 @@ namespace LootLasso
             }
 
             var sr = go.AddComponent<SpriteRenderer>();
+            if (PlaceholderArt.Lit != null) sr.sharedMaterial = PlaceholderArt.Lit; // lit at night in web builds too
             sr.sprite = kind.sprite != null ? kind.sprite : PlaceholderArt.Circle; // the art, or a placeholder
             sr.enabled = kind.animatedArt == null; // the animated art draws itself
             sr.color = kind.sprite != null ? Color.white : kind.color;               // tint only the placeholder

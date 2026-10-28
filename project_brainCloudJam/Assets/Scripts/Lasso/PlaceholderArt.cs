@@ -16,11 +16,17 @@ public static class PlaceholderArt
     // Higher resolution with a thin edge, for big rings like the throw range.
     public static Sprite ThinRing => thinRing != null ? thinRing : thinRing = Make(r => Mathf.Clamp01((1f - r) * 128f) * Mathf.Clamp01((r - 0.985f) * 128f), 512);
 
+    // The lit sprite material (Resources/SpriteLit.mat), so sprites made in code darken at night like the rest.
+    // Without it, the editor hands new SpriteRenderers the lit material but web builds hand them an unlit one.
+    static Material lit;
+    public static Material Lit => lit != null ? lit : lit = Resources.Load<Material>("SpriteLit");
+
     public static SpriteRenderer CreateSprite(string name, Sprite sprite, Color color, int order, Transform parent = null)
     {
         var go = new GameObject(name);
         if (parent != null) go.transform.SetParent(parent, false);
         var sr = go.AddComponent<SpriteRenderer>();
+        if (Lit != null) sr.sharedMaterial = Lit;
         sr.sprite = sprite;
         sr.color = color;
         sr.sortingOrder = order;

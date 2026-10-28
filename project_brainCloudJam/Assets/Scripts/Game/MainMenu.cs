@@ -216,7 +216,9 @@ namespace LootLasso
         {
             Label(net.status, 0.4f, size * 1.2f, Color.white, bold: true, title: true);
             // CeilToInt: counts 15, 14, ... 1 (never shows 0 while still looking).
-            Label($"Playing the bot in {Mathf.CeilToInt(net.SearchTimeLeft)}...", 0.47f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
+            // Once a rival is found the countdown stops mattering, so say what's happening instead.
+            string sub = net.phase == NetMatch.Phase.Starting ? "Getting ready..." : $"Playing the bot in {Mathf.CeilToInt(net.SearchTimeLeft)}...";
+            Label(sub, 0.47f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
             if (Button("CANCEL", 0.6f, size))
             {
                 net.Cancel();
