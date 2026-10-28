@@ -65,6 +65,10 @@ namespace LootLasso
         [Header("Flight and pull-back")]
         public float minFlightSpeed = 8f;
         public float maxFlightSpeed = 18f;
+        [Tooltip("Online: the other player's throw arrives late, so it's replayed faster to land on time. It still flies for at least this long, so it never looks like a jump.")]
+        public float minRemoteFlightTime = 0.12f;
+        [Tooltip("Online guest: after landing, the rope stays taut until the host says what it caught, but no longer than this.")]
+        public float maxVerdictWait = 1.5f;
         [Tooltip("Pull-back speed when the loop is close to the character...")]
         public float nearReturnSpeed = 10f;
         [Tooltip("...and when it's at full throw distance (maxRange). Slow far pulls make long throws (like the rival's hoard) cost time.")]
@@ -114,6 +118,7 @@ namespace LootLasso
         readonly List<Vector2> flightPath = new List<Vector2>();
         int flightPoint;        // which corner of the path the loop is flying toward right now
         float flightSpeed;
+        float remoteLandTime = -1f; // a remote throw: the match time it landed on the other player's screen (-1 = not remote)
 
         // Visuals made in code (placeholders until the art arrives).
         // ropePieces is an array: a fixed-size row of items. One per straight piece of rope (it bends at each wall bounce).
@@ -489,8 +494,10 @@ namespace LootLasso
 
         // ===== Online: the other player's throws, and the host's catch decisions =====
 
-        // Replays a throw that came over the network, from where and when it was thrown. If the message
-        // arrived late, the loop is moved along by however far it would already have flown.
+        // Replays a throw that came over the network, from where and when it was thrown. The message always
+        // arrives late (half a round trip, often longer than the whole flight), so instead of skipping ahead
+        // the loop flies the whole path from the hand, faster, to land when it would have. A throw that
+        // should already have landed still gets a short flight (minRemoteFlightTime) rather than appearing there.
         public void RemoteThrow(ThrowInfo info)
         {
             // Still finishing their previous throw here (timing differs slightly between computers):
@@ -508,9 +515,15 @@ namespace LootLasso
             loop.position = info.start;
             phase = Phase.Flying;
 
-            float late = Arena.Current != null ? Arena.Current.MatchTime - info.launchTime : 0f;
-            if (late > 0f) AdvanceFlight(late * flightSpeed);
-            lastThrow = $"remote throw {info.id}, {late * 1000f:0} ms late";
+            float late = Arena.Current != null ? Mathf.Max(0f, Arena.Current.MatchTime - info.launchTime) : 0f;
+            // The real path length: a throw that reaches the top or bottom stops short of its distance.
+            float length = 0f;
+            Vector2 corner = info.start;
+            foreach (var p in flightPath) { length += Vector2.Distance(corner, p); corner = p; }
+            remoteLandTime = info.launchTime + length / info.speed;
+            float flightTime = Mathf.Max(length / info.speed - late, minRemoteFlightTime);
+            flightSpeed = Mathf.Max(info.speed, length / flightTime);
+            lastThrow = $"remote throw {info.id}, {late * 1000f:0} ms late, flying {flightTime * 1000f:0} ms";
         }
 
         // The host says what throw "throwId" caught (the treasure ids), and which treasure it spooked.
@@ -521,6 +534,9 @@ namespace LootLasso
             {
                 ApplyCatch(ids, spooks); // landed and waiting: apply now
                 ResetVerdict();
+                // So late the loop already came back (waited longer than maxVerdictWait): nothing would pull the
+                // catch in, and it'd sit frozen on a finished rope. Put it straight in the hoard, as the host does.
+                if (phase == Phase.Idle || phase == Phase.WindUp) Deliver();
             }
             else
             {
@@ -644,9 +660,13 @@ namespace LootLasso
             Vector2 landing = loop.position;
             Rect home = HomeHoard;
             var found = new List<Treasure>();
+            // The other player's throw (we're the host): judge it where the treasure was when it landed on
+            // their screen, not now. Their message took a moment to get here, and treasure runs on meanwhile.
+            float judgeTime = control == Control.Remote && remoteLandTime >= 0f ? Mathf.Min(remoteLandTime, arena.MatchTime) : arena.MatchTime;
             foreach (var t in arena.treasures)
             {
-                if (Vector2.Distance(t.transform.position, landing) > catchRadius) continue; // outside the loop
+                Vector2 where = t.state == Treasure.State.Free ? t.WasAt(judgeTime) : (Vector2)t.transform.position;
+                if (Vector2.Distance(where, landing) > catchRadius) continue; // outside the loop
                 if (t.IsProtected(arena.MatchTime)) continue; // just landed or knocked loose: slips through (it's blinking)
 
                 // Catchable: loose in the field, or sitting in the OTHER player's hoard (a steal).
@@ -857,7 +877,10 @@ namespace LootLasso
             }
             DrawRope(ropePoints);
 
-            if (t >= 1f) phase = Phase.Returning; // taut: now the pull starts
+            // Taut: now the pull starts. Online guest: not until the host says what it caught (the decision takes
+            // a round trip, longer than a short pull), so the catch is pulled in from where it landed.
+            bool waiting = awaitingVerdict && Time.time - tightenStart < tightenTime + maxVerdictWait;
+            if (t >= 1f && !waiting) phase = Phase.Returning;
         }
 
         // ===== Spin math =====

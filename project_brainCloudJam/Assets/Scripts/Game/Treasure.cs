@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace LootLasso
@@ -206,6 +207,11 @@ namespace LootLasso
         float segStart, segEnd;
         int restarts; // bumped each time the wander restarts (e.g. after a rope snaps), to vary the seed
 
+        // Where it was over the last moment: x, y = position, z = match time. Online, the other player's throw
+        // arrives late, so the host looks back here to judge it where the treasure was when the loop landed.
+        readonly List<Vector3> history = new List<Vector3>();
+        const float historySeconds = 1.5f;
+
         // Creates a treasure GameObject from a kind (coin, chest, idol...). "static" = called on the class,
         // like Treasure.Spawn(...), because there's no treasure object yet to call it on.
         // startTime: the match time it appears (0 = the start of the match; later for stampedes and idols).
@@ -262,15 +268,39 @@ namespace LootLasso
         // Move to where this treasure should be at the given match time. The Arena calls this every frame.
         public void UpdateWander(float matchTime)
         {
-            if (state != State.Free || rng == null) return;
+            if (state == State.Free && rng != null)
+            {
+                // Catch up through any segments that already finished. "while", not "if": after a long
+                // hitch (or a backgrounded browser tab), several segments may have passed at once.
+                while (matchTime >= segEnd) NextSegment();
 
-            // Catch up through any segments that already finished. "while", not "if": after a long
-            // hitch (or a backgrounded browser tab), several segments may have passed at once.
-            while (matchTime >= segEnd) NextSegment();
+                // How far through the current segment we are (0..1), and the point that far along.
+                float t = Mathf.InverseLerp(segStart, segEnd, matchTime);
+                transform.position = Vector2.Lerp(from, to, t);
+            }
+            RememberPosition(matchTime);
+        }
 
-            // How far through the current segment we are (0..1), and the point that far along.
-            float t = Mathf.InverseLerp(segStart, segEnd, matchTime);
-            transform.position = Vector2.Lerp(from, to, t);
+        void RememberPosition(float matchTime)
+        {
+            Vector2 p = transform.position;
+            history.Add(new Vector3(p.x, p.y, matchTime));
+            int old = 0;
+            while (old < history.Count && history[old].z < matchTime - historySeconds) old++;
+            if (old > 0) history.RemoveRange(0, old);
+        }
+
+        // Where it was at match time "time" (up to historySeconds ago), from the remembered positions.
+        // Later than the newest one = where it is now.
+        public Vector2 WasAt(float time)
+        {
+            for (int i = history.Count - 1; i > 0; i--)
+            {
+                if (history[i - 1].z > time) continue;
+                Vector3 a = history[i - 1], b = history[i];
+                return Vector2.Lerp(a, b, Mathf.InverseLerp(a.z, b.z, time));
+            }
+            return history.Count > 0 && time < history[0].z ? (Vector2)history[0] : (Vector2)transform.position;
         }
 
         // Where it is (or was) at match time "time", for comparing two players' games at the same moment
