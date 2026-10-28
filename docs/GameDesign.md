@@ -2,7 +2,7 @@
 
 **Working title:** Loot Lasso
 **Jam:** [brainCloud Jam](https://itch.io/jam/braincloud-jam). Theme: **Treasure**
-**Dates:** Thu Oct 16, 9:00 AM PT → **Thu Oct 30, 9:00 AM PT** (submission deadline)
+**Dates:** Fri Oct 16, 9:00 AM PT → **Fri Oct 30, 9:00 AM PT** (submission deadline)
 **Team:** Joey (code, audio, design) · two artists (split decided at kickoff)
 **Engine:** Unity 6.6 (6000.6.6f1), 2D URP, Web (WebGL) build on itch.io
 **Screen:** **portrait** (9:16). The jam build is web; an **iOS** version is the post-jam goal (see section 15)
@@ -34,10 +34,10 @@ Spin up the lasso → flick to throw → loop lands → catch treasure inside it
 ```
 
 A match ends when:
-- a player owns **all** the treasure, or
+- a player owns **all** the treasure (only checked once every scheduled treasure has arrived, see section 4b), or
 - the timer runs out → the player with the most treasure value wins.
 
-Match length defaults to **2 minutes** and is a field in the Inspector, so it can be tuned in playtests.
+Match length is **2 minutes**, exactly the length of the gameplay track (112 BPM), so match time equals song time and the match events in section 4b land on the music.
 
 ---
 
@@ -56,12 +56,12 @@ Match length defaults to **2 minutes** and is a field in the Inspector, so it ca
 | **Overspin** | Whip the pointer faster than the loop can follow | The rope's pull is capped (top speed ≈ 3.3 circles/s). Get your hand more than half a turn ahead and it **backlashes**: the loop is pulled the other way and slows down. You have to ease off and find the rhythm. |
 | **Release** | Let go when the loop is swinging toward your target | The lasso flies out. Too slow a spin (under half a circle per second) just drops it. **No aim line:** reading the swing is the skill. |
 | **Flight** | — | It **bounces off the left and right screen edges** (up to 3 bounces; the distance includes them) and stops if it reaches the top or bottom edge. The rope lies along its path. |
-| **Catch** | — | Everything free inside the landed loop (radius 0.5) is caught. |
-| **Pull back** | — | The rope **tightens** into a straight line (0.15–0.6 s), then the loop is pulled in **slower the farther out it is** (10 units/s near, 4 at full distance) **and slower the heavier the catch** (10% per unit of weight). The rope never snaps. |
+| **Catch** | — | Everything free inside the landed loop (radius 0.75) is caught. |
+| **Pull back** | — | The rope **tightens** into a straight line (0.15–0.6 s), then the loop is pulled in **slower the farther out it is** (10 units/s near, 4 at full distance) **and slower the heavier the catch** (10% per unit of weight). The rope only snaps on a steal (section 5). |
 
 **Numbers (Inspector fields on `LassoSpin`, Scripts/Game):**
 - **Distance:** 1.5 to 12 units, squared curve: about 2 units at 1 circle/s, 5 at 2, 12 at 3. **Reaching the rival's hoard is a skill shot**, and slow to recover from.
-- **Weight → haul time:** Coin = 1, Chest = 3, Idol = 6. An idol comes back ~60% slower than an empty loop, so grabbing one is a commitment.
+- **Weight → haul time:** Coin = 1, Idol = 6, Chest = 10. A chest comes back at half the speed of an empty loop, so grabbing one is a commitment.
 - **Mouse and touch:** input goes through the Input System's `Pointer`.
 
 **Tried and dropped** (all in git history): flick to throw, wind-up then swipe, a timing ring with a PERFECT bonus, rope tangling (replaced by backlash), loop size from circle width with rope strength and snapping, and the aim line / landing ring. All cut to keep the controls to one idea a new player gets in seconds.
@@ -72,20 +72,43 @@ Match length defaults to **2 minutes** and is a field in the Inspector, so it ca
 
 ## 4. Treasure
 
-Treasure is **anthropomorphised**: little characters that wander the field. More valuable = faster, but each keeps its weight.
+Treasure is **anthropomorphised**: little characters that wander the field. Each type trades value against speed and weight.
 
-| Type | Value | Weight | Speed (units/s) | Personality ideas |
-|---|---|---|---|---|
-| **Coin** | 1 | 1 | 1.0 | Lazy, waddles, naps |
-| **Chest** | 5 | 3 | 2.0 | Grumpy, stomps, heavy |
-| **Idol** | 15 | 6 | 3.5 | Vain and twitchy, sprints away |
+*Values tuned Oct 28; they're set on the Arena in the scene.*
 
-- **Catching:** everything inside the loop when it lands is caught. Catch radius is 1 unit.
-- **Weight:** heavier treasure is hauled back more slowly (the rope never snaps). A big haul ties you up while your rival keeps throwing.
+| Type | Value | Weight | Speed (units/s) | At the start | Personality ideas |
+|---|---|---|---|---|---|
+| **Coin** | 2 | 1 | 2.0 | 10 | Lazy, waddles, naps |
+| **Chest** | 5 | 10 | 1.0 | 4 | Grumpy, stomps, heavy |
+| **Idol** | 8 | 6 | 3.5 | none (2 arrive mid-match) | Vain and twitchy, sprints away |
+
+- **Catching:** everything inside the loop when it lands is caught. Catch radius is 0.75 units.
+- **Weight:** heavier treasure is hauled back more slowly. A big haul ties you up while your rival keeps throwing.
 - **Wandering** is calculated from the match seed and clock, so both players see identical movement without any network traffic.
+- ✅ **Spooked:** free treasure within 1.8 units of a loop that lands without catching it sprints 2.6 units away from the landing point.
+- **After night falls** (section 4b), all treasure wanders 25% faster.
 
-**Should have:** treasure reacts to the game. It flees from a lasso landing nearby, struggles while being pulled, and celebrates or sulks in a hoard.
+**Should have:** treasure struggles while being pulled, and celebrates or sulks in a hoard.
 **Could have:** a **Mimic** chest that bites your rope: whatever's on it drops back into the field.
+
+---
+
+## 4b. Match events
+
+*Added Oct 28 so matches don't go stale.* Every match follows the same script, timed to the gameplay track (match time = song time):
+
+| Time | Event |
+|---|---|
+| 0:00 | Noon. 10 coins and 4 chests in the field |
+| 0:34.29 | **Stampede:** 3 coins and 1 chest run in from the field's side edges |
+| 0:51.43 | **Golden hour** (beat 96): the light peaks gold, the **first idol** appears in the centre (blinking and uncatchable for a second), plus a stampede |
+| 1:08.57 | Stampede |
+| 1:25.71 | **Nightfall**, at the song's switch-up (about 34 s left: the 30-second warning). Moonlit blue light, a NIGHTFALL! popup and shake, the **second idol** plus a stampede, and treasure is 25% faster from here on |
+| last 16 beats | Shake on every kick, every half beat for the last 4, and the timer counts 0:08 to 0:01 on the beat |
+
+- The light runs from noon to midnight over the match (`DayNight`), reading its golden hour and nightfall times from the Arena so light and gameplay agree.
+- Everything runs off the shared match clock and seed, so online players should see the same events. **Not yet tested between two devices.**
+- Settings: Arena > "Match events" (times, stampede size, night speed, spook radius and distance).
 
 ---
 
@@ -93,9 +116,11 @@ Treasure is **anthropomorphised**: little characters that wander the field. More
 
 - Each player has a **hoard zone** behind them. Delivered treasure sits there and counts toward their score.
 - **Score = the value of what's in your hoard right now** (not a running total), so being stolen from lowers it. Shown as YOU (under your hoard) and RIVAL (in their hoard), with a +value popup as each piece lands.
-- A lasso landing on the **rival's hoard** catches treasure out of it: a **steal** (pink STOLEN! popup). You can never catch from your own hoard.
-- Where caught treasure is placed in a hoard comes from the shared seed, so steal throws line up on both screens.
-- The rival's hoard is at the far end, so a steal needs a near-top-speed spin and takes ~2.5 s to haul back: a real risk while your own hoard is open.
+- Delivered treasure fills **evenly spaced spots** in the hoard (1.3 units apart), so steal throws line up on both screens.
+- *Reworked Oct 28.* A lasso landing on the **rival's hoard** snatches treasure out of it: a **steal** (STOLEN! popup, screen shake, the robbed hoard flashes). You can never catch from your own hoard.
+- **Steals don't score.** When the pull brings stolen treasure across the centre line, the rope **snaps** (KNOCKED LOOSE!) and the treasure hops loose there, back into play for either player. Anything caught in the field on the same throw keeps coming.
+- ✅ **Guard window:** delivered or knocked-loose treasure blinks and can't be caught for 1 second.
+- The rival's hoard is at the far end, so a steal needs a near-top-speed spin: a real risk while your own hoard is open.
 
 ### Arena layout (world is symmetric)
 The world mirrors top-to-bottom around the middle of the field, so both players have identical hoards (online, steals land the same on both screens). Each player sees themselves at the bottom.
@@ -109,7 +134,7 @@ The world mirrors top-to-bottom around the middle of the field, so both players 
 | Your hoard (you stand at its top edge) | 248–284 | −5.391 to −3.826 |
 | Spare strip (score display) | 284–320 | −6.957 to −5.391 |
 
-**Could have:** a short "guard" window after delivering, or hoard defenses as power-ups.
+**Could have:** hoard defenses as power-ups.
 
 ---
 
@@ -140,7 +165,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 - **What gets sent:** throws only (direction, distance, match time). Treasure movement is never sent.
 - **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs.
 - **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `matchEnd(scores)`, plus `ping` for latency.
-- **No opponent?** After about **15 s** of waiting, the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
+- **No opponent?** After about **15 s** of waiting, the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Since Oct 28 it's slower and sloppier, and aims where moving treasure *was*, so it can miss. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
 - **Disconnects:** if the opponent leaves mid-match, the match ends and **the player who stays wins** (forfeit), whatever the score.
 - **Sides:** the host plays the bottom hoard, the guest the top, with its camera turned 180° so everyone sees themselves at the bottom. Hoards are coloured from each player's own view (yours blue, theirs red). The code is `Scripts/Game/NetMatch.cs`.
 
@@ -152,14 +177,14 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 |---|---|---|
 | **Authentication** | Anonymous login plus a display name | ✅ working |
 | **RTT + Lobbies** | Matchmaking and in-match messages (lobby signals) | ✅ prototyped |
-| **Leaderboards** | **Total treasure ever** (cumulative leaderboard `TotalTreasure`; every match's final score is added), top 10 on the Leaderboard screen | ✅ working |
+| **Leaderboards** | **Total treasure ever** (cumulative leaderboard `TotalTreasure`; every match's final score is added), top 10 on the RANKINGS screen | ✅ working |
 | Player statistics | Lifetime catches / steals / perfect throws on the results screen | Could have |
 
 ---
 
 ## 9. Screens
 
-1. **Title:** logo, Play, Leaderboard, How to Play, Settings (volume).
+1. **Title:** logo, Play, Rankings (the leaderboard), How to Play, Settings (volume).
 2. **Name entry:** on first launch only, saved to brainCloud.
 3. **Matchmaking:** "Looking for a rival..." with a countdown → bot match if none found.
 4. **Match HUD:** both scores, timer, your name and the rival's name.
@@ -216,10 +241,13 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 | Lasso twirl (loop, pitch follows spin) | ✅ done |
 | Lasso throw (fades on landing) | ✅ done |
 | Lasso grab | ✅ done |
-| Wall bounce, steal, deliver/score | To do |
+| Wall bounce, steal (yours and the rival's), deliver (pitch varies, lower for heavy treasure) | ✅ done |
+| UI click and hover, win/lose stingers | ✅ done |
+| Timer warning | ✅ covered by nightfall at the song's switch-up and the beat-synced final countdown |
+| Music: menu (intro into a loop, crossfades with the match) and match (2:00, follows the match clock) | ✅ done. Doubles as the first tracks of the asset pack; stems allow adaptive layers (Could have) |
 | Treasure voices (coin squeak, chest grumble, idol gasp) | To do |
-| UI clicks, timer warning, win/lose stingers | To do |
-| Music: title, match, final 30 s | To do. Doubles as the first tracks of the asset pack; stems allow adaptive layers (Could have) |
+
+Source projects are in `SFX_Project/` (not committed yet, see section 14).
 
 ---
 
@@ -232,20 +260,22 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 - *Oct 22:* throw simplified; symmetric arena; wandering treasure; catching and hauling; hoards, score display and stealing; pixel art templates for the artists; Pixel Perfect Camera at 23 PPU. Then the match timer, winner panel and Play Again, and the **bot** (LassoBot: the same lasso driven by a fake hand). **Milestone 2 done, a day early.**
 - *Oct 23:* **milestone 5 done** (done before 3 and 4): title, first-launch name entry, How to Play, and a leaderboard of total treasure ever (brainCloud cumulative leaderboard `TotalTreasure`).
 - *Oct 24:* **milestone 4 done, two days early:** online 1v1 over lobby signals. PLAY ONLINE falls back to the bot after 15 s, and PRACTICE plays the bot directly. It was tested editor vs itch build: synced treasure, scores and timer, the match end, and forfeit when a player leaves. The web build is now a 540×960 canvas, and the Pixel Perfect Camera uses Stretch Fill so any browser zoom fills the frame. **The first phone test on itch looks good.**
+- *Oct 27:* the artists' pixel fonts for all text, plus the deliver, steal, bounce and win/lose sounds.
+- *Oct 28:* UI sounds, menu music, juice (shake, coin bursts, steal flash, beat-synced finale), the stealing rework, noon-to-midnight lighting, pixel shadows, a code-drawn stand-in desert floor, and the match events (section 4b). Match events came after the feature freeze; they need an online test between two devices.
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
-| 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Tue Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
-| 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Thu Oct 23 | Arena ground, hoard zones, lasso rope/loop |
-| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io ✅; **tested on a phone** ✅ (placeholders, Oct 24) | Fri Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
-| 4 | ✅ **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found (done Oct 24) | Sun Oct 26 | VFX, decorations |
-| 5 | ✅ **Menus and brainCloud** | Title, name entry, results, leaderboard (total treasure) | Mon Oct 27 | Fix-ups from playtests |
-| — | **🔒 Feature freeze** | Evening of **Mon Oct 27**: after this, only bugs, tuning and polish | | |
-| 6 | **Polish and sound** | Joey's SFX and music, juice (shake, particles), How to Play | Tue Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
-| 7 | **Ship** | itch.io page done, final build tested on desktop and phone, **submitted** | **Evening of Wed Oct 29** | Final check of the page |
-| — | **Deadline** | Thu Oct 30, 9:00 AM PT. No work planned | | |
+| 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Wed Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
+| 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Fri Oct 23 | Arena ground, hoard zones, lasso rope/loop |
+| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io ✅; **tested on a phone** ✅ (placeholders, Oct 24). In so far: fonts, hunters (blue/red, front/back), winner animations, coin, logo, UI components. Still placeholders: chest, idol, ground (code-drawn stand-in) | Sat Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
+| 4 | ✅ **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found (done Oct 24) | Mon Oct 26 | VFX, decorations |
+| 5 | ✅ **Menus and brainCloud** | Title, name entry, How to Play, results, leaderboard (total treasure) | Tue Oct 27 | Fix-ups from playtests |
+| — | **🔒 Feature freeze** | Evening of **Tue Oct 27**: after this, only bugs, tuning and polish | | |
+| 6 | **Polish and sound** | Joey's SFX and music ✅ (treasure voices left), juice ✅ (shake, coin bursts, steal flash, finale) | Wed Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
+| 7 | **Ship** | itch.io page done, final build tested on desktop and phone (including an online match with the new match events), **submitted** | **Evening of Thu Oct 29** | Final check of the page |
+| — | **Deadline** | Fri Oct 30, 9:00 AM PT. No work planned | | |
 
-**Cut first if short on time:** power-ups (already a stretch goal), then treasure reactions, then music.
+**Cut first if short on time:** power-ups (already a stretch goal), then the remaining treasure reactions, then treasure voices.
 **Never cut:** the bot opponent. Voters need someone to play against.
 
 **After submission:** uploads lock during voting, but brainCloud portal settings can still change. Keep the lobby and leaderboard working, and watch for bugs players report.
@@ -257,6 +287,7 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 | Risk | Plan |
 |---|---|
 | Online sync bugs eat the schedule | The bot match is a complete game on its own. If networking isn't solid by **Oct 26**, ship bot-first with online as a bonus |
+| Match events (Oct 28) desync online | They run off the shared clock and seed like the rest of the treasure, but haven't been tested between two devices. Test editor vs itch build before shipping |
 | Nobody online during voting | Bot fallback after 15 s (Must) |
 | Art arrives late | Code uses placeholder shapes until art lands. Integrate art in batches (Oct 24, then whatever's ready by Oct 27) |
 | The throw is too hard for new players | How-to-Play card, generous defaults, tune on Oct 26 |
@@ -266,9 +297,8 @@ All audio is also meant for a sound and music pack (section 16): export seamless
 
 ## 14. Open questions
 
-- Art style: pixel or hand-drawn, pixels per unit, and the palette? (kickoff meeting)
-- Who does what between the two artists? (kickoff meeting)
-- Is "Loot Lasso" the final title?
+- ~~Art style~~: pixel art at 23 PPU (decided, section 10). The palette is up to the artists.
+- Is "Loot Lasso" the final title? (The logo says so.)
 - Team agreement for asset pack sales: ownership and revenue split (section 16)
 - Should audio source projects (`SFX_Project/`) live in this repo or somewhere separate?
 
