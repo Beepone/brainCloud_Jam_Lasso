@@ -16,8 +16,33 @@ namespace LootLasso
     // Everything is drawn at the game's pixel scale (one art pixel = the same size as in the 180 x 320 world),
     // so the pixel art stays crisp and lines up with everything else.
     // If a sprite is missing, the plain Unity button is drawn instead.
+    //
+    // Buttons also make the UI sounds (on the Arena): a click when pressed, and a hover blip when the mouse
+    // moves onto one (not on phones, which have no hover).
     public static class UiKit
     {
+        // UI sound volumes, 0 to 1. (Static, so they aren't in the Inspector: change them here.)
+        public static float clickVolume = 0.8f;
+        public static float hoverVolume = 0.4f;
+
+        // One speaker for the UI sounds, made the first time it's needed (on the Arena, which lasts all game).
+        static AudioSource uiSource;
+        // The button the mouse is over (its control ID), so the hover sound plays once per button entered.
+        static int hoveredButton;
+
+        static void PlayUiSound(AudioClip clip, float volume)
+        {
+            var arena = Arena.Current;
+            if (clip == null || arena == null) return;
+            if (uiSource == null)
+            {
+                uiSource = arena.gameObject.AddComponent<AudioSource>();
+                uiSource.playOnAwake = false;
+                uiSource.spatialBlend = 0f;
+            }
+            uiSource.PlayOneShot(clip, volume);
+        }
+
         // How many screen pixels one art pixel covers: the screen fits 320 rows tall or 180 columns wide,
         // whichever is tighter (Min). Same as the title logo.
         public static float Scale => Mathf.Min(Screen.height / 320f, Screen.width / 180f);
@@ -141,6 +166,7 @@ namespace LootLasso
                         GUIUtility.hotControl = 0;
                         e.Use();
                         clicked = over; // only counts if you let go on the button
+                        if (clicked) PlayUiSound(Arena.Current != null ? Arena.Current.uiClick : null, clickVolume);
                     }
                     break;
                 case EventType.Repaint:
@@ -155,6 +181,14 @@ namespace LootLasso
             bool held = GUIUtility.hotControl == id;
             // Phones have no hover: the "mouse" stays where the last tap was, so skip it there.
             bool hover = over && !held && !Application.isMobilePlatform;
+
+            // The hover blip, once when the mouse moves onto this button (not while holding it down).
+            if (hover && GUI.enabled && hoveredButton != id)
+            {
+                hoveredButton = id;
+                PlayUiSound(Arena.Current != null ? Arena.Current.uiHover : null, hoverVolume);
+            }
+            else if (!over && hoveredButton == id) hoveredButton = 0;
             string state = !GUI.enabled ? "Disabled" : held && over ? "Pressed" : hover ? "Hover" : "Normal";
             var sprite = Get(state, size) ?? Get("Normal", size);
 

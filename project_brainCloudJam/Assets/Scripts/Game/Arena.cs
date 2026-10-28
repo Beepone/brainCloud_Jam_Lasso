@@ -107,6 +107,8 @@ namespace LootLasso
         public AudioClip rivalSteals;    // the rival stole from yours
         public AudioClip winSting;       // the result panel, won (GameMusic.cs)
         public AudioClip loseSting;      // ...lost
+        public AudioClip uiClick;        // a menu button is pressed (UiKit.cs)
+        public AudioClip uiHover;        // the mouse moves onto a menu button (not on phones)
 
         [Header("Hunter art (filled in from Assets/Sprites automatically in the editor)")]
         [Tooltip("The imported Aseprite files. Back = seen from behind (you), front = facing you (the rival).")]
@@ -218,6 +220,8 @@ namespace LootLasso
             if (rivalSteals == null) rivalSteals = LoadSound("RivalStealsFromPlayer", ref wasMissing);
             if (winSting == null) winSting = LoadSound("WinSting", ref wasMissing);
             if (loseSting == null) loseSting = LoadSound("LoseSting", ref wasMissing);
+            if (uiClick == null) uiClick = LoadSound("UI_Click", ref wasMissing);
+            if (uiHover == null) uiHover = LoadSound("UI_Hover", ref wasMissing);
             // An Aseprite file's main asset is a ready-made object (sprite + Animator with one state per tag).
             if (hunterBlueBack == null) hunterBlueBack = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_backsprite.aseprite");
             if (hunterBlueFront == null) hunterBlueFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_blue_16x16_frontsprite.aseprite");
@@ -247,10 +251,12 @@ namespace LootLasso
             return frames.ToArray();
         }
 
-        // Editor only: Assets/SFX/<name>.ogg. Sets wasMissing when it finds one, so the scene gets saved with it.
+        // Editor only: Assets/SFX/<name>.ogg (or .wav). Sets wasMissing when it finds one, so the scene gets
+        // saved with it.
         AudioClip LoadSound(string name, ref bool wasMissing)
         {
-            var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/SFX/{name}.ogg");
+            var clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/SFX/{name}.ogg")
+                    ?? UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/SFX/{name}.wav");
             if (clip != null) wasMissing = true;
             return clip;
         }

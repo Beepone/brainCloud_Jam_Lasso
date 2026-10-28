@@ -773,6 +773,8 @@ MonoBehaviour:
   rivalSteals: {fileID: 8300000, guid: 13846e42e0044a941868be7d308e1c8e, type: 3}
   winSting: {fileID: 8300000, guid: a75fc783a679a284a8f05830a616122e, type: 3}
   loseSting: {fileID: 8300000, guid: 78f1fae50f657b04e8b1080ec6279378, type: 3}
+  uiClick: {fileID: 8300000, guid: 89791c4e63cae8d4d92f7c5d638cde7f, type: 3}
+  uiHover: {fileID: 8300000, guid: a2dd14ed00e7a3746a93be6fa38d815b, type: 3}
   hunterBlueBack: {fileID: -2253911629886400664, guid: be5cf284d04bc4d448477bc4c37b3ef9, type: 3}
   hunterBlueFront: {fileID: -2253911629886400664, guid: d59f3da81bec0874b8599a6ca950e09e, type: 3}
   hunterRedBack: {fileID: -2253911629886400664, guid: 35fdd6c3dad19cb41b1e61eec18aba2a, type: 3}
