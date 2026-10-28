@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <!--
+    Loot Lasso's web page, made for itch.io (Player Settings > Web > Resolution and Presentation > "Itch").
+    - The game keeps its 9:16 shape and fills whatever frame it's given (the itch embed, itch's fullscreen,
+      a phone), with dark bars around it. On a computer it snaps to a whole multiple of 180 x 320 when it
+      can, so the pixel art stays even.
+    - A loading bar while the game downloads, instead of a blank screen.
+    - No scrollbars, no page zoom or bounce on phones.
+    On itch: upload the zip with "This file will be played in the browser", viewport 540 x 960,
+    and tick "Mobile friendly" (portrait) and "Fullscreen button".
+  -->
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+    <title>Loot Lasso</title>
+    <style>
+      html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        overflow: hidden; background: #231F20;
+        overscroll-behavior: none; touch-action: none;
+      }
+      #unity-canvas {
+        position: absolute; display: block;
+        background: #231F20; outline: none;
+        image-rendering: pixelated; touch-action: none;
+      }
+      #loading {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 60%; max-width: 260px; text-align: center;
+        font: bold 14px/1 monospace; letter-spacing: 3px; color: #f2c14e;
+      }
+      #loading-bar {
+        margin-top: 10px; height: 12px; padding: 2px;
+        border: 2px solid #f2c14e; background: #3b2a1e;
+      }
+      #loading-fill { width: 0%; height: 100%; background: #f2c14e; }
+      #error {
+        display: none; position: absolute; left: 10%; right: 10%; top: 40%;
+        text-align: center; font: 14px/1.4 sans-serif; color: #ffb4a8;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="loading">LOADING<div id="loading-bar"><div id="loading-fill"></div></div></div>
+    <div id="error"></div>
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    <script>
+      var canvas = document.getElementById("unity-canvas");
+      var touch = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+
+      // Sizes the canvas to the biggest 9:16 rectangle that fits the window, centred.
+      // On a computer, a whole multiple of 180 x 320 when at least 2x fits (even pixels); phones use all the room.
+      function fit() {
+        var w = window.innerWidth, h = window.innerHeight;
+        var scale = Math.min(w / 180, h / 320);
+        if (!touch && scale >= 2) scale = Math.floor(scale);
+        var cw = Math.round(180 * scale), ch = Math.round(320 * scale);
+        canvas.style.width = cw + "px";
+        canvas.style.height = ch + "px";
+        canvas.style.left = Math.round((w - cw) / 2) + "px";
+        canvas.style.top = Math.round((h - ch) / 2) + "px";
+      }
+      window.addEventListener("resize", fit);
+      fit();
+
+      // Clicking or tapping the game gives it the keyboard (for typing your name).
+      canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+
+      createUnityInstance(canvas, {
+        arguments: [],
+#if PROGRESSIVE_ASSET_LOADING
+        primaryDataUrls: {{{ JSON.stringify(PRIMARY_DATA_FILES) }}},
+        secondaryDataUrls: {{{ JSON.stringify(SECONDARY_DATA_FILES) }}},
+#else
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+#endif
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_WASM
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: "Build/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: "Loot Lasso",
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+      }, function (progress) {
+        document.getElementById("loading-fill").style.width = Math.round(progress * 100) + "%";
+      }).then(function () {
+        document.getElementById("loading").style.display = "none";
+        canvas.focus();
+      }).catch(function (message) {
+        document.getElementById("loading").style.display = "none";
+        var error = document.getElementById("error");
+        error.textContent = "Loot Lasso couldn't start: " + message;
+        error.style.display = "block";
+      });
+    </script>
+  </body>
+</html>
