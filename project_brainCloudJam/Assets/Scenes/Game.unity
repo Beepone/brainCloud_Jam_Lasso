@@ -767,6 +767,8 @@ MonoBehaviour:
   lassoThrow: {fileID: 8300000, guid: 3b4db98f5b389934888923d0e6d595d1, type: 3}
   lassoGrab: {fileID: 8300000, guid: bf5d42948a49af2468c5723709fd13c0, type: 3}
   gameplayMusic: {fileID: 8300000, guid: 5eb2d0d13724cf447a672a9847613226, type: 3}
+  menuStart: {fileID: 8300000, guid: 5b3ada599b03bd24a89618b5b1c124d5, type: 3}
+  menuLoop: {fileID: 8300000, guid: a34f86971f1fd4d499a95e107ca3e78a, type: 3}
   delivered: {fileID: 8300000, guid: 58ca18ea097bbca4297913b1abdc96f0, type: 3}
   ropeBounce: {fileID: 8300000, guid: a1dd30bced38e924f85b1f010d0f5959, type: 3}
   playerSteals: {fileID: 8300000, guid: a5b12a93fe984c64592ea67268a2f3a1, type: 3}

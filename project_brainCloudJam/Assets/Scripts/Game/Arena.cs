@@ -101,6 +101,8 @@ namespace LootLasso
         public AudioClip lassoThrow;
         public AudioClip lassoGrab;
         public AudioClip gameplayMusic; // loops during a match (GameMusic.cs)
+        public AudioClip menuStart;      // the menu music's opening, played once (GameMusic.cs)
+        public AudioClip menuLoop;       // ...then this repeats
         public AudioClip delivered;      // treasure lands in a hoard (LassoSound.cs)
         public AudioClip ropeBounce;     // the loop bounces off a wall
         public AudioClip playerSteals;   // YOU stole from the rival's hoard
@@ -214,6 +216,8 @@ namespace LootLasso
             if (lassoThrow == null) lassoThrow = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoThrow.ogg");
             if (lassoGrab == null) lassoGrab = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/LassoGrab.ogg");
             if (gameplayMusic == null) gameplayMusic = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/SFX/GameplayTrack.ogg");
+            if (menuStart == null) menuStart = LoadSound("MenuTrackStart", ref wasMissing);
+            if (menuLoop == null) menuLoop = LoadSound("MenuTrackLoop", ref wasMissing);
             if (delivered == null) delivered = LoadSound("Delivered", ref wasMissing);
             if (ropeBounce == null) ropeBounce = LoadSound("RopeBounce", ref wasMissing);
             if (playerSteals == null) playerSteals = LoadSound("PlayerStealsFromRival", ref wasMissing);
