@@ -143,6 +143,25 @@ namespace LootLasso
         [Tooltip("How long that hop takes, in seconds.")]
         public float knockHopTime = 0.35f;
 
+        [Header("Match events (seconds into the match; the music is exactly as long as the match)")]
+        [Tooltip("Treasure kinds with this name don't start in the field: one arrives at golden hour and one at nightfall.")]
+        public string gatedKindName = "Idol";
+        [Tooltip("Golden hour: the light turns gold and the first idol appears in the middle. 51.43 s = 96 beats at 112 BPM.")]
+        public float goldenHourAt = 51.43f;
+        [Tooltip("Nightfall: the song's switch-up (1:25.71). Night falls, the second idol appears, and treasure speeds up.")]
+        public float nightfallAt = 85.71f;
+        [Tooltip("At night, treasure moves this much faster (1.25 = 25% faster).")]
+        public float nightSpeed = 1.25f;
+        [Tooltip("Stampedes: when fresh treasure runs in from the sides (64 and 128 beats).")]
+        public float[] stampedeTimes = { 34.29f, 68.57f };
+        [Tooltip("Coins and chests in each stampede. (Golden hour and nightfall bring a stampede too, along with their idol.)")]
+        public int stampedeCoins = 3;
+        public int stampedeChests = 1;
+        [Tooltip("Free treasure this close to where a loop lands (but not caught) gets spooked and dashes away.")]
+        public float spookRadius = 1.8f;
+        [Tooltip("How far from the landing point spooked treasure runs.")]
+        public float spookDistance = 2.6f;
+
         [Header("Match")]
         [Tooltip("Match length in seconds. The match also ends early if one player owns every treasure.")]
         public float matchLength = 120f;
@@ -178,6 +197,19 @@ namespace LootLasso
 
         // When the match started, on the real clock (see MatchTime).
         double matchStart;
+
+        // Match events done so far, and the id the next new treasure gets (ids must match online).
+        int stampedesDone;
+        bool goldenIdolDone, nightIdolDone;
+        int nextId;
+
+        // Is it night (at this match time)? Treasure moves faster then.
+        public bool IsNightAt(float time) => time >= nightfallAt;
+        // How fast treasure moves at this match time, compared with normal.
+        public float SpeedAt(float time) => IsNightAt(time) ? nightSpeed : 1f;
+
+        // Has every treasure arrived (both idols, every stampede)? Until then nobody can win early by owning everything.
+        bool AllArrived => goldenIdolDone && nightIdolDone && stampedesDone >= stampedeTimes.Length;
 
         // Seconds since the match started. Treasure positions are calculated from this, so both players
         // in an online match will see the same thing. It uses the real clock rather than Time.time, which
@@ -366,8 +398,11 @@ namespace LootLasso
             // on every computer. Unity's Random can't promise that.
             var rng = new Prng(newSeed);
             int id = 0;
+            stampedesDone = 0;
+            goldenIdolDone = nightIdolDone = false;
             foreach (var kind in kinds)
             {
+                if (kind.name == gatedKindName) continue; // idols arrive later (golden hour and nightfall)
                 for (int i = 0; i < kind.count; i++)
                 {
                     var start = new Vector2(rng.Range(field.xMin, field.xMax), rng.Range(field.yMin, field.yMax));
@@ -382,6 +417,73 @@ namespace LootLasso
                 SpawnInRivalHoard(kinds[0], practiceRivalCoins, ref id);
                 SpawnInRivalHoard(kinds[1], practiceRivalChests, ref id);
             }
+            nextId = id;
+        }
+
+        // ===== Match events =====
+        // Checked every frame: anything whose time has come happens now. An online guest who joins a moment
+        // late runs the ones already due straight away; treasure is placed by match time, so it still ends up
+        // exactly where the host's is.
+        void UpdateEvents(float time)
+        {
+            while (stampedesDone < stampedeTimes.Length && time >= stampedeTimes[stampedesDone])
+            {
+                Stampede(stampedeTimes[stampedesDone], stampedesDone);
+                stampedesDone++;
+            }
+            if (!goldenIdolDone && time >= goldenHourAt)
+            {
+                goldenIdolDone = true;
+                Stampede(goldenHourAt, 100, showPopup: false); // the idol comes with a stampede (its popup says enough)
+                if (SpawnIdol(goldenHourAt)) ScoreHud.ShowPopup("GOLDEN IDOL!", new Vector2(0f, MirrorLineY), new Color(1f, 0.85f, 0.2f), big: true);
+            }
+            if (!nightIdolDone && time >= nightfallAt)
+            {
+                nightIdolDone = true;
+                Stampede(nightfallAt, 101, showPopup: false); // with a stampede too
+                SpawnIdol(nightfallAt); // (DayNight shows NIGHTFALL! at the same moment)
+            }
+        }
+
+        TreasureKind FindKind(string kindName)
+        {
+            foreach (var kind in kinds) if (kind.name == kindName) return kind;
+            return null;
+        }
+
+        // An idol appears in the middle of the field, blinking (uncatchable) for a moment so both players see it first.
+        bool SpawnIdol(float time)
+        {
+            var kind = FindKind(gatedKindName);
+            if (kind == null) return false;
+            var t = Treasure.Spawn(nextId++, kind, new Vector2(field.center.x, MirrorLineY), this, time);
+            t.protectedUntil = time + protectTime;
+            treasures.Add(t);
+            return true;
+        }
+
+        // Fresh treasure runs in from the left and right edges of the field. "number" makes each stampede's
+        // layout different (from the shared seed). showPopup: say STAMPEDE! (off when another popup says it all).
+        void Stampede(float time, int number, bool showPopup = true)
+        {
+            var rng = new Prng(matchSeed * 101 + number * 7919);
+            var coin = kinds.Count > 0 ? kinds[0] : null;
+            var chest = kinds.Count > 1 ? kinds[1] : null;
+            int total = stampedeCoins + stampedeChests;
+            for (int i = 0; i < total; i++)
+            {
+                var kind = i < stampedeCoins ? coin : chest;
+                if (kind == null) continue;
+                bool fromLeft = i % 2 == 0;
+                float y = rng.Range(field.yMin + 0.5f, field.yMax - 0.5f);
+                float edge = fromLeft ? field.xMin - 0.3f : field.xMax + 0.3f; // just off the field, still on screen
+                var t = Treasure.Spawn(nextId++, kind, new Vector2(edge, y), this, time);
+                // Run in a few steps, then wander like the rest.
+                float run = rng.Range(1.2f, 2.6f);
+                t.DashTo(new Vector2(edge + (fromLeft ? run : -run), y), run / (kind.speed * 2f));
+                treasures.Add(t);
+            }
+            if (total > 0 && showPopup) ScoreHud.ShowPopup("STAMPEDE!", new Vector2(0f, MirrorLineY), Color.white, big: true);
         }
 
         // "ref id" lets this method change the caller's id counter, so every treasure still gets its own number.
@@ -400,6 +502,7 @@ namespace LootLasso
             if (!isPlaying) return; // no match running (title screen, or the result panel): everything stays still
 
             matchTime = MatchTime; // readout
+            UpdateEvents(matchTime);
             foreach (var t in treasures) t.UpdateWander(matchTime);
 
             // ----- End conditions -----
@@ -413,6 +516,7 @@ namespace LootLasso
             // Someone owns everything: every treasure is in the same hoard (none loose or on a rope).
             // Online, only the host checks this (and tells the guest), so both agree.
             if (!decidesEnd) return;
+            if (!AllArrived) return; // idols and stampedes still to come: owning everything now doesn't count
             if (OwnsEverything(yourHoard)) EndMatch(OwnerText(LassoSpin.Side.You));
             else if (OwnsEverything(rivalHoard)) EndMatch(OwnerText(LassoSpin.Side.Rival));
         }

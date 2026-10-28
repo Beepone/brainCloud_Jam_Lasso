@@ -735,9 +735,9 @@ MonoBehaviour:
     height: 1.5652
   kinds:
   - name: Coin
-    value: 1
+    value: 2
     weight: 1
-    speed: 1
+    speed: 2
     size: 0.4
     animatedArt: {fileID: -2253911629886400664, guid: 98b50f4942dc7fb4897aa02f5c0f3778, type: 3}
     sprite: {fileID: 0}
@@ -745,15 +745,15 @@ MonoBehaviour:
     count: 10
   - name: Chest
     value: 5
-    weight: 3
-    speed: 2
+    weight: 10
+    speed: 1
     size: 0.7
     animatedArt: {fileID: 0}
     sprite: {fileID: 0}
     color: {r: 0.65, g: 0.4, b: 0.2, a: 1}
     count: 4
   - name: Idol
-    value: 15
+    value: 8
     weight: 6
     speed: 3.5
     size: 0.6
@@ -818,6 +818,17 @@ MonoBehaviour:
   protectTime: 1
   knockHopDistance: 1.2
   knockHopTime: 0.35
+  gatedKindName: Idol
+  goldenHourAt: 51.43
+  nightfallAt: 85.71
+  nightSpeed: 1.25
+  stampedeTimes:
+  - 34.29
+  - 68.57
+  stampedeCoins: 3
+  stampedeChests: 1
+  spookRadius: 1.8
+  spookDistance: 2.6
   matchLength: 120
   localSide: 0
   decidesEnd: 1

@@ -685,6 +685,15 @@ namespace LootLasso
             }
 
             caughtCount = hooked.Count;
+
+            // Free treasure near the landing spot that wasn't caught panics and runs away.
+            var arena = Arena.Current;
+            if (arena != null)
+                foreach (var t in arena.treasures)
+                    if (t.state == Treasure.State.Free && !found.Contains(t)
+                        && Vector2.Distance(t.transform.position, landing) <= arena.spookRadius)
+                        t.Spook(arena, landing);
+
             if (caughtCount == 0) lastThrow += " | missed";
             else lastThrow += $" | caught {caughtCount} (weight {caughtWeight:0})";
 

@@ -116,10 +116,38 @@ namespace LootLasso
             Vector2 target = from + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * arena.knockHopDistance;
             target.x = Mathf.Clamp(target.x, bounds.xMin, bounds.xMax);
             target.y = Mathf.Clamp(target.y, bounds.yMin, bounds.yMax);
-            to = target;
-            segEnd = segStart + Mathf.Max(arena.knockHopTime, 0.05f);
+            DashTo(target, arena.knockHopTime);
 
             protectedUntil = now + arena.protectTime;
+        }
+
+        // Spooked: a loop landed close by without catching it, so it dashes straight away from the landing
+        // point. The spot it runs to is worked out from the landing point (the same for both online players),
+        // not from where it happened to be this frame.
+        public void Spook(Arena arena, Vector2 landing)
+        {
+            float now = arena.MatchTime;
+            StartWander(arena.matchSeed, arena.field, now);
+            Vector2 away = (Vector2)transform.position - landing;
+            if (away.sqrMagnitude < 0.0001f)
+            {
+                // Right on top of it: pick a direction from the shared seed.
+                var dirRng = new Prng(arena.matchSeed * 17 + id * 331 + restarts);
+                float angle = dirRng.Range(0f, Mathf.PI * 2f);
+                away = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            }
+            Vector2 target = landing + away.normalized * arena.spookDistance;
+            target.x = Mathf.Clamp(target.x, bounds.xMin, bounds.xMax);
+            target.y = Mathf.Clamp(target.y, bounds.yMin, bounds.yMax);
+            DashTo(target, Vector2.Distance(from, target) / (speed * 3f)); // a panicked sprint: 3x its normal speed
+        }
+
+        // Makes the current wander segment a straight dash to "target", taking "duration" seconds.
+        // Call right after StartWander (or Spawn); the normal wandering carries on from wherever it ends.
+        public void DashTo(Vector2 target, float duration)
+        {
+            to = target;
+            segEnd = segStart + Mathf.Max(duration, 0.05f);
         }
 
         // ----- Blinking while protected -----
@@ -156,7 +184,8 @@ namespace LootLasso
 
         // Creates a treasure GameObject from a kind (coin, chest, idol...). "static" = called on the class,
         // like Treasure.Spawn(...), because there's no treasure object yet to call it on.
-        public static Treasure Spawn(int id, Arena.TreasureKind kind, Vector2 position, Arena arena)
+        // startTime: the match time it appears (0 = the start of the match; later for stampedes and idols).
+        public static Treasure Spawn(int id, Arena.TreasureKind kind, Vector2 position, Arena arena, float startTime = 0f)
         {
             var go = new GameObject($"{kind.name} {id}");
             go.transform.SetParent(arena.transform, false);
@@ -186,7 +215,7 @@ namespace LootLasso
             t.value = kind.value;
             t.weight = kind.weight;
             t.speed = kind.speed;
-            t.StartWander(arena.matchSeed, arena.field, 0f);
+            t.StartWander(arena.matchSeed, arena.field, startTime);
             return t;
         }
 
@@ -238,7 +267,10 @@ namespace LootLasso
 
             to = target;
             // Time = distance / speed. Max(..., 0.05) avoids a zero-length segment (e.g. stuck in a corner).
-            segEnd = segStart + Mathf.Max(Vector2.Distance(from, to) / speed, 0.05f);
+            // Faster at night. Worked out from the segment's START time (not "now"), so it's the same on every
+            // computer however late a frame is.
+            float pace = speed * (Arena.Current != null ? Arena.Current.SpeedAt(segStart) : 1f);
+            segEnd = segStart + Mathf.Max(Vector2.Distance(from, to) / pace, 0.05f);
         }
     }
 

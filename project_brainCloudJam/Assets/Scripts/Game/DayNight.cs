@@ -17,8 +17,11 @@ namespace LootLasso
     // The Arena adds this automatically.
     public class DayNight : MonoBehaviour
     {
-        [Tooltip("When night falls, in seconds into the match music (1:25.71 = 85.71).")]
-        public float nightfallAt = 85.71f;
+        // When night falls and golden hour peaks: set on the Arena (Match events), so the gameplay
+        // (idols, faster treasure) and the light always agree.
+        float nightfallAt => arena.nightfallAt;
+        float goldenHourAt => arena.goldenHourAt;
+
         [Tooltip("Seconds the snap to night takes (0 = instant).")]
         public float nightfallTime = 0.25f;
 
@@ -67,12 +70,13 @@ namespace LootLasso
             isNight = song >= nightfallAt;
             if (!isNight)
             {
-                // Noon to dusk: white for the first 40%, then warming to gold, then to dusk at nightfall.
-                float t = Mathf.Clamp01(song / nightfallAt);
-                Color color = t < 0.4f ? noon
-                            : t < 0.75f ? Color.Lerp(noon, golden, (t - 0.4f) / 0.35f)
-                            : Color.Lerp(golden, dusk, (t - 0.75f) / 0.25f);
-                Set(color, Mathf.Lerp(dayIntensity, duskIntensity, Mathf.InverseLerp(0.6f, 1f, t)));
+                // Noon until 20 s before golden hour, warming to full gold AT golden hour (when its idol appears),
+                // then to dusk at nightfall.
+                float warmStart = Mathf.Max(0f, goldenHourAt - 20f);
+                Color color = song < warmStart ? noon
+                            : song < goldenHourAt ? Color.Lerp(noon, golden, Mathf.InverseLerp(warmStart, goldenHourAt, song))
+                            : Color.Lerp(golden, dusk, Mathf.InverseLerp(goldenHourAt, nightfallAt, song));
+                Set(color, Mathf.Lerp(dayIntensity, duskIntensity, Mathf.InverseLerp(goldenHourAt, nightfallAt, song)));
             }
             else
             {
