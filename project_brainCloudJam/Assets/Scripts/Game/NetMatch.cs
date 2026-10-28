@@ -329,7 +329,8 @@ namespace LootLasso
         // Our player let go of their lasso: tell the other player.
         void OnLocalThrow(LassoSpin lasso, LassoSpin.ThrowInfo t)
         {
-            if (phase != Phase.Playing || lasso.control != LassoSpin.Control.Pointer) return;
+            // Any lasso played on this computer (normally the pointer; a bot in playtests), never the remote one.
+            if (phase != Phase.Playing || lasso.control == LassoSpin.Control.Remote) return;
             Send(new Dictionary<string, object>
             {
                 ["type"] = "throw", ["side"] = (int)lasso.side, ["id"] = t.id,

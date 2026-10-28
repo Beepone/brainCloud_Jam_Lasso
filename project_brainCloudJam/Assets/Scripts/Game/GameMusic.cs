@@ -24,9 +24,13 @@ namespace LootLasso
         [Tooltip("Seconds to fade out when the match ends (and leaving the menus).")]
         public float fadeOutTime = 2f;
         [Range(0f, 1f)] public float stingVolume = 0.8f;
+        [Tooltip("How far (seconds) the match music may drift from the match clock before it's jumped back in step.")]
+        public float maxDrift = 0.1f;
 
         [Header("Readouts")]
         public bool menuStartPlayed; // the menu's start track has been heard (or skipped)
+        public float drift;          // match music minus match clock, seconds (+ = the song is ahead)
+        public int resyncs;          // how many times the match music was jumped back in step this match
 
         AudioSource source;      // the match music
         bool wasPlaying;         // was a match running last frame? (to spot a new one starting)
@@ -46,7 +50,9 @@ namespace LootLasso
         void Start()
         {
             arena = GetComponent<Arena>();
-            source = MakeSource(arena.gameplayMusic, loop: true);
+            // Not looped: the song is exactly as long as the match, and a song that got ahead must never
+            // wrap back to its start (the light would jump back to noon and the finale would be lost).
+            source = MakeSource(arena.gameplayMusic, loop: false);
             menuStart = MakeSource(arena.menuStart, loop: false);
             menuLoop = MakeSource(arena.menuLoop, loop: true);
             stingSource = MakeSource(null, loop: false);
@@ -105,7 +111,10 @@ namespace LootLasso
                     source.volume = 0f;
                     source.time = Mathf.Clamp(arena.MatchTime, 0f, source.clip.length - 0.1f);
                     source.Play();
+                    resyncs = 0;
+                    nextResync = Time.realtimeSinceStartup + 1f; // give it a moment to actually start (browsers decode first)
                 }
+                else KeepInStep();
                 FadeTo(source, volume, fadeInTime);
             }
             else if (source.isPlaying)
@@ -113,6 +122,44 @@ namespace LootLasso
                 // Match over, or back to the menu: fade out, then stop.
                 if (FadeTo(source, 0f, fadeOutTime)) source.Stop();
             }
+        }
+
+        // The match clock is the master (online, it's the one both players share) and the song follows it.
+        // They're lined up when the match starts, but can drift apart after: the browser may start the song
+        // late while it decodes it, and a stall, a hidden tab or a paused editor stops the audio while the
+        // clock keeps running. Everything on the beat (finale, countdown, day and night) follows the song,
+        // and the timer and match end follow the clock, so if they drift the outro lands in the wrong place.
+        // Here, if the song is more than maxDrift off, it jumps to where the clock says it should be
+        // (a tiny skip, and only when it has actually drifted).
+        float nextResync; // the earliest time (real clock) for another jump, so a slow-to-report song isn't jumped every frame
+
+        void KeepInStep()
+        {
+            float target = arena.MatchTime;
+            if (target >= source.clip.length - 0.1f) return; // the very end: let it finish with the match
+            if (Time.realtimeSinceStartup < nextResync) return;
+
+            if (!source.isPlaying)
+            {
+                // Stopped (ended early, or never started): start it again at the right place.
+                drift = -target;
+                source.time = target;
+                source.Play();
+                nextResync = Time.realtimeSinceStartup + 1f;
+                resyncs++;
+                Debug.Log($"Match music had stopped at {target:0.0} s: restarted in step with the match clock.");
+                return;
+            }
+            else
+            {
+                drift = SongTime - target;
+                if (Mathf.Abs(drift) <= maxDrift) return;
+                source.time = target;
+            }
+            resyncs++;
+            nextResync = Time.realtimeSinceStartup + 0.5f;
+            // Shows in the browser console too, so a desync while playtesting is easy to spot.
+            Debug.Log($"Match music was {drift:+0.00;-0.00} s off the match clock at {target:0.0} s: jumped back in step.");
         }
 
         // Is the menu music on (playing, or fading out)? Kept by us rather than asking the speakers, because a

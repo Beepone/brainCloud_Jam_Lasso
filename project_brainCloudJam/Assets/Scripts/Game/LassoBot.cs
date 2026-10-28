@@ -138,7 +138,7 @@ namespace LootLasso
         // Scores every treasure it could catch and picks one of the best. Returns false if there's nothing.
         bool PickTarget(Arena arena, Vector2 me)
         {
-            Rect home = arena.rivalHoard; // the bot's own hoard: never steal from it
+            Rect home = HomeHoard(arena); // the bot's own hoard: never steal from it
             Treasure best = null;
             float bestScore = 0f;
 
@@ -172,6 +172,10 @@ namespace LootLasso
             return best != null;
         }
 
+        // The hoard this bot delivers to. Normally the rival's, but a bot can play the bottom side too
+        // (e.g. bot vs bot playtests).
+        Rect HomeHoard(Arena arena) => spin.side == LassoSpin.Side.You ? arena.yourHoard : arena.rivalHoard;
+
         // ----- Spinning and releasing -----
 
         // Returns true on the frame it lets go.
@@ -181,7 +185,7 @@ namespace LootLasso
 
             // The target may have wandered off, been caught by you, or (taking too long) give up and throw anyway.
             bool targetGone = target == null || target.state == Treasure.State.Hooked
-                           || (target.state == Treasure.State.InHoard && target.hoard == arena.rivalHoard);
+                           || (target.state == Treasure.State.InHoard && target.hoard == HomeHoard(arena));
             if (targetGone || Time.time - spinStart > 5f) return Mathf.Abs(spin.loopSpeed) > spin.minSpinSpeed;
 
             // Only now and then does it look again at where the target is. In between it aims at the old spot.
