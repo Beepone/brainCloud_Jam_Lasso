@@ -121,14 +121,35 @@ namespace LootLasso
             protectedUntil = now + arena.protectTime;
         }
 
-        // Spooked: a loop landed close by without catching it, so it dashes straight away from the landing
-        // point. The spot it runs to is worked out from the landing point (the same for both online players),
-        // not from where it happened to be this frame.
-        public void Spook(Arena arena, Vector2 landing)
+        // Everything about one spook, so the online guest can repeat it exactly. The host decides spooks
+        // (like catches) and sends these with its catch decision: if each game spooked on its own, they'd do
+        // it at slightly different moments and places, and a treasure spooked on only one screen would get a
+        // different restart count and wander a completely different path there for the rest of the match.
+        public struct SpookInfo
         {
-            float now = arena.MatchTime;
-            StartWander(arena.matchSeed, arena.field, now);
-            Vector2 away = (Vector2)transform.position - landing;
+            public int id;
+            public Vector2 from;  // where it was when it got spooked
+            public float time;    // the match time it got spooked
+            public int restarts;  // its wander restart count before the spook (picks its random path after)
+        }
+
+        // Spooked: a loop landed close by without catching it, so it dashes straight away from the landing
+        // point. Returns what happened, for the host to send to the guest.
+        public SpookInfo Spook(Arena arena, Vector2 landing)
+        {
+            var info = new SpookInfo { id = id, from = transform.position, time = arena.MatchTime, restarts = restarts };
+            ApplySpook(arena, landing, info);
+            return info;
+        }
+
+        // Does a spook exactly as described: the host's own, or (online guest) one the host sent. Starting
+        // from the same place, time and restart count gives the same dash and the same wandering after it.
+        public void ApplySpook(Arena arena, Vector2 landing, SpookInfo info)
+        {
+            restarts = info.restarts;
+            transform.position = info.from;
+            StartWander(arena.matchSeed, arena.field, info.time);
+            Vector2 away = info.from - landing;
             if (away.sqrMagnitude < 0.0001f)
             {
                 // Right on top of it: pick a direction from the shared seed.
@@ -247,6 +268,16 @@ namespace LootLasso
             // How far through the current segment we are (0..1), and the point that far along.
             float t = Mathf.InverseLerp(segStart, segEnd, matchTime);
             transform.position = Vector2.Lerp(from, to, t);
+        }
+
+        // Where it is (or was) at match time "time", for comparing two players' games at the same moment
+        // (NetMatch's sync check). Exact while it's free and "time" is in its current wander segment;
+        // otherwise just where it is now.
+        public Vector2 PositionAt(float time)
+        {
+            if (state == State.Free && rng != null && time >= segStart && time <= segEnd)
+                return Vector2.Lerp(from, to, Mathf.InverseLerp(segStart, segEnd, time));
+            return transform.position;
         }
 
         void NextSegment()

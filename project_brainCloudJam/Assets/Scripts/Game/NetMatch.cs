@@ -32,6 +32,9 @@ namespace LootLasso
         public string lobbyType = "LassoLobby";
         [Tooltip("Seconds to look for a human rival before playing the bot instead.")]
         public float searchTimeout = 15f;
+        [Tooltip("Online: every 10 s of match time, log where every treasure is. Both players log the same moments, " +
+                 "so comparing the host's and the guest's console (the browser's F12 console) shows any desync.")]
+        public bool logSyncChecks = true;
 
         public enum Phase { Idle, Connecting, Searching, Starting, Playing, Over }
 
@@ -267,7 +270,7 @@ namespace LootLasso
                 case "caught" when !isHost && phase == Phase.Playing:
                 {
                     var lasso = SideLasso(Num(msg, "side"));
-                    if (lasso != null) lasso.ReceiveCatchDecision(Int(msg, "id"), ParseIds(Str(msg, "ids")));
+                    if (lasso != null) lasso.ReceiveCatchDecision(Int(msg, "id"), ParseIds(Str(msg, "ids")), ParseSpooks(Str(msg, "spooks")));
                     break;
                 }
 
@@ -287,6 +290,7 @@ namespace LootLasso
         void BeginMatch(int seed, float alreadyElapsed)
         {
             phase = Phase.Playing;
+            nextSyncCheck = 1;
             status = isHost ? "Online: you're the host" : $"Online: {roundTripMs} ms round trip";
             if (bot != null) bot.enabled = false; // a real person plays the other lasso now
 
@@ -339,12 +343,47 @@ namespace LootLasso
             });
         }
 
-        // The host decided what a throw caught (either lasso): tell the guest.
+        // The host decided what a throw caught (either lasso), and what it spooked: tell the guest.
         void OnCatchDecided(LassoSpin lasso, int throwId, List<int> ids)
         {
             if (phase != Phase.Playing || !isHost) return;
             // The ids as one string like "3,7,12": simple to send and to read back.
-            Send(new Dictionary<string, object> { ["type"] = "caught", ["side"] = (int)lasso.side, ["id"] = throwId, ["ids"] = string.Join(",", ids) });
+            Send(new Dictionary<string, object>
+            {
+                ["type"] = "caught", ["side"] = (int)lasso.side, ["id"] = throwId, ["ids"] = string.Join(",", ids),
+                ["spooks"] = FormatSpooks(lasso.LastSpooks),
+            });
+        }
+
+        // Spooks as one string: "id,x,y,time,restarts" for each, separated by ";". Numbers are written the same
+        // way on every computer (InvariantCulture: always "1.5", never "1,5") and exactly ("R" = round-trip).
+        static string FormatSpooks(List<Treasure.SpookInfo> spooks)
+        {
+            var parts = new List<string>();
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            foreach (var s in spooks)
+                parts.Add(string.Join(",", s.id.ToString(inv), s.from.x.ToString("R", inv), s.from.y.ToString("R", inv),
+                                           s.time.ToString("R", inv), s.restarts.ToString(inv)));
+            return string.Join(";", parts);
+        }
+
+        static List<Treasure.SpookInfo> ParseSpooks(string text)
+        {
+            var spooks = new List<Treasure.SpookInfo>();
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            foreach (var one in text.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var p = one.Split(',');
+                if (p.Length < 5) continue;
+                spooks.Add(new Treasure.SpookInfo
+                {
+                    id = int.Parse(p[0], inv),
+                    from = new Vector2(float.Parse(p[1], inv), float.Parse(p[2], inv)),
+                    time = float.Parse(p[3], inv),
+                    restarts = int.Parse(p[4], inv),
+                });
+            }
+            return spooks;
         }
 
         void OnMatchEnded()
@@ -382,6 +421,29 @@ namespace LootLasso
                 Send(new Dictionary<string, object> { ["type"] = "hello", ["sentAt"] = Now });
                 nextHelloTime = Now + 1f;
             }
+
+            if (phase == Phase.Playing && logSyncChecks && arena.isPlaying && arena.MatchTime >= nextSyncCheck * 10f)
+                LogSyncCheck(nextSyncCheck++ * 10f);
+        }
+
+        // ===== Sync check =====
+        // One line: where every treasure is at exactly match time "time" (id, state F/H/I = free/hooked/in hoard,
+        // position), the same moment on both computers. If a treasure's numbers differ between the host's and
+        // the guest's line, it has drifted apart (hooked treasure follows the rope, so it may differ a little).
+        int nextSyncCheck;
+
+        void LogSyncCheck(float time)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            var sb = new System.Text.StringBuilder();
+            sb.Append(isHost ? "[sync] host " : "[sync] guest ").Append(time.ToString("0", inv)).Append("s:");
+            foreach (var t in arena.treasures)
+            {
+                Vector2 p = t.PositionAt(time);
+                sb.Append(' ').Append(t.id).Append(t.state.ToString()[0]).Append(':')
+                  .Append(p.x.ToString("0.00", inv)).Append(',').Append(p.y.ToString("0.00", inv));
+            }
+            Debug.Log(sb.ToString());
         }
 
         // ===== Small helpers =====

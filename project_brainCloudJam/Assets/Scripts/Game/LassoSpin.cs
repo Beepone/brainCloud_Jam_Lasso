@@ -178,6 +178,11 @@ namespace LootLasso
         bool awaitingVerdict; // landed, waiting for the host to say what it caught
         int pendingVerdictId = -1;          // a decision that arrived before the loop landed
         List<int> pendingVerdict;
+        List<Treasure.SpookInfo> pendingSpooks;
+
+        // The treasure this lasso's last landing spooked, when this game decided it (online: NetMatch sends
+        // these to the guest with the catch decision, so its treasure runs exactly the same way).
+        public readonly List<Treasure.SpookInfo> LastSpooks = new List<Treasure.SpookInfo>();
 
         // For the bot: true when the lasso is free to start a new throw.
         public bool IsIdle => phase == Phase.Idle;
@@ -471,7 +476,7 @@ namespace LootLasso
                 }
                 else if (pendingVerdictId == currentThrowId && pendingVerdict != null)
                 {
-                    ApplyCatch(pendingVerdict); // the host's decision already arrived
+                    ApplyCatch(pendingVerdict, pendingSpooks); // the host's decision already arrived
                     ResetVerdict();
                 }
                 else
@@ -508,19 +513,20 @@ namespace LootLasso
             lastThrow = $"remote throw {info.id}, {late * 1000f:0} ms late";
         }
 
-        // The host says what throw "throwId" caught (the treasure ids).
-        public void ReceiveCatchDecision(int throwId, List<int> ids)
+        // The host says what throw "throwId" caught (the treasure ids), and which treasure it spooked.
+        public void ReceiveCatchDecision(int throwId, List<int> ids, List<Treasure.SpookInfo> spooks)
         {
             if (throwId != currentThrowId) return; // about an older throw: ignore
             if (awaitingVerdict)
             {
-                ApplyCatch(ids); // landed and waiting: apply now
+                ApplyCatch(ids, spooks); // landed and waiting: apply now
                 ResetVerdict();
             }
             else
             {
                 pendingVerdictId = throwId; // still in the air: apply when it lands
                 pendingVerdict = ids;
+                pendingSpooks = spooks;
             }
         }
 
@@ -529,17 +535,18 @@ namespace LootLasso
             awaitingVerdict = false;
             pendingVerdictId = -1;
             pendingVerdict = null;
+            pendingSpooks = null;
         }
 
-        // Hooks the treasure with these ids onto this rope (the host's decision).
-        void ApplyCatch(List<int> ids)
+        // Hooks the treasure with these ids onto this rope and repeats the host's spooks (the host's decision).
+        void ApplyCatch(List<int> ids, List<Treasure.SpookInfo> spooks)
         {
             var arena = Arena.Current;
             if (arena == null) return;
             var list = new List<Treasure>();
             foreach (var t in arena.treasures)
                 if (ids.Contains(t.id)) list.Add(t);
-            HookAll(list);
+            HookAll(list, spooks ?? new List<Treasure.SpookInfo>());
         }
 
         // ===== Wall bounces =====
@@ -657,7 +664,8 @@ namespace LootLasso
         }
 
         // Puts these treasures on this rope (from our own Catch, or the host's decision).
-        void HookAll(List<Treasure> found)
+        // hostSpooks: the spooks the host decided (online guest); null = we decide them here.
+        void HookAll(List<Treasure> found, List<Treasure.SpookInfo> hostSpooks = null)
         {
             if (found.Count > 0) Hooked?.Invoke(this);
             hooked.Clear();
@@ -687,12 +695,22 @@ namespace LootLasso
             caughtCount = hooked.Count;
 
             // Free treasure near the landing spot that wasn't caught panics and runs away.
+            // The game that decides catches decides this too; the online guest repeats the host's spooks exactly.
+            LastSpooks.Clear();
             var arena = Arena.Current;
-            if (arena != null)
+            if (arena != null && hostSpooks != null)
+            {
+                foreach (var s in hostSpooks)
+                    foreach (var t in arena.treasures)
+                        if (t.id == s.id && t.state == Treasure.State.Free) t.ApplySpook(arena, landing, s);
+            }
+            else if (arena != null)
+            {
                 foreach (var t in arena.treasures)
                     if (t.state == Treasure.State.Free && !found.Contains(t)
                         && Vector2.Distance(t.transform.position, landing) <= arena.spookRadius)
-                        t.Spook(arena, landing);
+                        LastSpooks.Add(t.Spook(arena, landing));
+            }
 
             if (caughtCount == 0) lastThrow += " | missed";
             else lastThrow += $" | caught {caughtCount} (weight {caughtWeight:0})";
