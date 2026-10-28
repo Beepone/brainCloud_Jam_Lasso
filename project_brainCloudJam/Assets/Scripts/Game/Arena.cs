@@ -577,7 +577,13 @@ namespace LootLasso
         {
             int total = 0;
             foreach (var t in treasures)
-                if (t.state == Treasure.State.InHoard && t.hoard == hoardArea) total += t.value;
+            {
+                if (t.hoard != hoardArea) continue;
+                // In the hoard, or snatched from it but not yet dragged out (a steal only costs you once it leaves).
+                bool inHoard = t.state == Treasure.State.InHoard;
+                bool leaving = t.state == Treasure.State.Hooked && hoardArea.Contains(t.transform.position);
+                if (inHoard || leaving) total += t.value;
+            }
             return total;
         }
 

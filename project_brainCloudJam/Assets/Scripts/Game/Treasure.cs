@@ -40,8 +40,11 @@ namespace LootLasso
         [System.NonSerialized] public LassoSpin hookedBy;
 
         // Caught by a lasso: stop wandering. The lasso moves it from now on.
+        // Snatched out of a hoard, it remembers which one: it still counts for that hoard until it's
+        // dragged out of it (Arena.Score), so a last-second landing doesn't take it straight away.
         public void Hook(LassoSpin by)
         {
+            if (state != State.InHoard) hoard = default; // caught in the field: not from anyone's hoard
             state = State.Hooked;
             hookedBy = by;
         }
