@@ -614,10 +614,27 @@ namespace LootLasso
         public int YourScore => Score(yourHoard);
         public int RivalScore => Score(rivalHoard);
 
-        // Draws the two hoard zones as faint rectangles (placeholders until the art arrives).
+        // Draws the two hoard zones: a very light tint, edged top and bottom by a dashed line in the hunter's
+        // colour. (The tint used to be stronger, but it washed out the ground art.)
         SpriteRenderer bottomZone, topZone;
-        static readonly Color BlueZoneColor = new Color(0.3f, 0.6f, 1f, 0.18f);
-        static readonly Color RedZoneColor = new Color(1f, 0.35f, 0.35f, 0.18f);
+        static readonly Color BlueZoneColor = new Color(0.3f, 0.6f, 1f, 0.07f);
+        static readonly Color RedZoneColor = new Color(1f, 0.35f, 0.35f, 0.07f);
+        const float EdgeAlpha = 0.8f;
+        readonly List<SpriteRenderer> bottomEdges = new List<SpriteRenderer>(), topEdges = new List<SpriteRenderer>();
+
+        // The dashed line: 2 art pixels on, 2 off, repeated across the hoard.
+        static Sprite dash;
+        static Sprite Dash
+        {
+            get
+            {
+                if (dash != null) return dash;
+                var tex = new Texture2D(4, 1, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat };
+                tex.SetPixels(new[] { Color.white, Color.white, Color.clear, Color.clear });
+                tex.Apply();
+                return dash = Sprite.Create(tex, new Rect(0, 0, 4, 1), new Vector2(0.5f, 0.5f), 23f, 0, SpriteMeshType.FullRect);
+            }
+        }
 
         // Is the hunter on this side blue this match? And the player at this computer?
         public bool IsBlue(LassoSpin.Side side) => (side == LassoSpin.Side.You) == bottomIsBlue;
@@ -631,7 +648,23 @@ namespace LootLasso
         {
             bottomZone = DrawRect("Bottom Hoard", yourHoard);
             topZone = DrawRect("Top Hoard", rivalHoard);
+            DrawEdges(yourHoard, bottomEdges);
+            DrawEdges(rivalHoard, topEdges);
             ColorZones();
+        }
+
+        // A dashed line along the top and bottom of a hoard, one art pixel thick, just inside it.
+        void DrawEdges(Rect r, List<SpriteRenderer> edges)
+        {
+            const float px = 1f / 23f;
+            foreach (float y in new[] { r.yMax - px / 2f, r.yMin + px / 2f })
+            {
+                var sr = PlaceholderArt.CreateSprite("Hoard Edge", Dash, Color.white, YSort.Ground, transform);
+                sr.drawMode = SpriteDrawMode.Tiled; // repeats the dash instead of stretching it
+                sr.size = new Vector2(r.width, px);
+                sr.transform.position = new Vector3(r.center.x, y, 0f);
+                edges.Add(sr);
+            }
         }
 
         // Each hoard takes the colour of its hunter.
@@ -640,7 +673,11 @@ namespace LootLasso
             if (bottomZone == null || topZone == null) return;
             bottomZone.color = bottomIsBlue ? BlueZoneColor : RedZoneColor;
             topZone.color = bottomIsBlue ? RedZoneColor : BlueZoneColor;
+            foreach (var e in bottomEdges) e.color = Opaque(bottomZone.color);
+            foreach (var e in topEdges) e.color = Opaque(topZone.color);
         }
+
+        static Color Opaque(Color c) => new Color(c.r, c.g, c.b, EdgeAlpha);
 
         SpriteRenderer DrawRect(string name, Rect r)
         {
