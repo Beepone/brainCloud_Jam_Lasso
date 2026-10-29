@@ -249,7 +249,12 @@ namespace LootLasso
 
             // Added after the Treasure on purpose: TreasureArt has [RequireComponent(typeof(Treasure))], so adding
             // it first made Unity add a blank second Treasure, and the art read that one's state (always Free).
-            if (kind.animatedArt != null) go.AddComponent<TreasureArt>();
+            if (kind.animatedArt != null)
+            {
+                var art = go.AddComponent<TreasureArt>();
+                art.shadowDrop = kind.shadowDrop;
+                art.shadowWidth = kind.shadowWidth;
+            }
             return t;
         }
 

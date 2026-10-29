@@ -5,7 +5,7 @@ namespace LootLasso
     // TreasureArt: picks the animation for a piece of treasure drawn with animated art (an imported
     // Aseprite file, set as the kind's animatedArt on the Arena). Treasure.Spawn adds it.
     //
-    // Animations (Aseprite tags; the coin uses these, and the chest and idol should use the same names):
+    // Animations (Aseprite tags; the coin uses these. The chest's Idle and eight walk directions work too):
     //   idlefloat           pausing, or sitting in a hoard
     //   flyleftface         wandering, moving left on screen      flyrightface        ...moving right
     //   struggleleftface    caught on a rope, dragged leftwards   strugglerightface   ...dragged rightwards
@@ -23,11 +23,23 @@ namespace LootLasso
 
         [Tooltip("How far below the treasure its shadow sits on screen, in art pixels.")]
         public float shadowDrop = 7f;
+        [Tooltip("Shadow width (1 = 10 art pixels).")]
+        public float shadowWidth = 1f;
         [Range(0f, 1f)] public float shadowDarkness = 0.35f;
 
         [Header("Readouts")]
         public string animationName;
         public bool facingRight = true;
+        [Tooltip("Eight-way art (the chest): which way it's heading on screen, as a tag name.")]
+        public string heading = "walkforward";
+
+        // The chest's eight walk tags, going anticlockwise from screen-right in 45° steps.
+        // "front" faces the viewer (walking down the screen), "back" faces away (walking up).
+        static readonly string[] EightWay =
+        {
+            "rightfacewalk", "backrightwalk", "backchestwalk", "backleftwalk",
+            "leftfacewalk", "frontleftwalk", "walkforward", "frontrightwalk",
+        };
 
         Treasure treasure;
         Animator animator;
@@ -42,7 +54,7 @@ namespace LootLasso
             if (animator != null) art = animator.transform;
             lastPosition = transform.position;
 
-            shadow = PixelShadow.Create(transform, shadowDarkness);
+            shadow = PixelShadow.Create(transform, shadowDarkness, shadowWidth);
         }
 
         void LateUpdate()
@@ -68,20 +80,32 @@ namespace LootLasso
                 float screenRight = Vector2.Dot(moved, cam.transform.right);
                 // Only turn around on a clear sideways move, so it doesn't flicker when moving straight up or down.
                 if (Mathf.Abs(screenRight) > moved.magnitude * 0.2f) facingRight = screenRight > 0f;
+
+                // Eight-way: the angle of the move on screen (0° = right, 90° = up), rounded to the nearest 45°.
+                float screenUp = Vector2.Dot(moved, cam.transform.up);
+                float angle = Mathf.Atan2(screenUp, screenRight) * Mathf.Rad2Deg;
+                heading = EightWay[(Mathf.RoundToInt(angle / 45f) + 8) % 8];
             }
 
             string face = facingRight ? "rightface" : "leftface";
-            string next = treasure.state switch // "switch" picks one answer by the state's value
+            // Each state lists the coin's tag first, then the chest's eight-way walk (the chest walks instead
+            // of flying, and has no struggle, so it keeps walking the way it's dragged).
+            string[] wanted = treasure.state switch // "switch" picks one answer by the state's value
             {
-                Treasure.State.Hooked => "struggle" + face,
-                Treasure.State.Free when moving => "fly" + face,
-                _ => "idlefloat", // "_" = anything else: pausing, or in a hoard
+                Treasure.State.Hooked => new[] { "struggle" + face, "fly" + face, heading },
+                Treasure.State.Free when moving => new[] { "fly" + face, heading },
+                _ => new[] { "idlefloat", "Idle" }, // "_" = anything else: pausing, or in a hoard
             };
 
-            if (next != animationName && Has(next))
+            foreach (var next in wanted)
             {
-                animator.Play(next, 0, 0f);
-                animationName = next;
+                if (!Has(next)) continue;
+                if (next != animationName)
+                {
+                    animator.Play(next, 0, 0f);
+                    animationName = next;
+                }
+                break;
             }
         }
 

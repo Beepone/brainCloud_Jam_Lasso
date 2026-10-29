@@ -264,6 +264,8 @@ MonoBehaviour:
   distanceCurve: 2
   minFlightSpeed: 8
   maxFlightSpeed: 18
+  minRemoteFlightTime: 0.12
+  maxVerdictWait: 1.5
   nearReturnSpeed: 10
   farReturnSpeed: 2
   minTightenTime: 0.15
@@ -668,6 +670,8 @@ MonoBehaviour:
   distanceCurve: 2
   minFlightSpeed: 8
   maxFlightSpeed: 18
+  minRemoteFlightTime: 0.12
+  maxVerdictWait: 1.5
   nearReturnSpeed: 10
   farReturnSpeed: 2
   minTightenTime: 0.15
@@ -742,15 +746,19 @@ MonoBehaviour:
     animatedArt: {fileID: -2253911629886400664, guid: 98b50f4942dc7fb4897aa02f5c0f3778, type: 3}
     sprite: {fileID: 0}
     color: {r: 1, g: 0.85, b: 0.2, a: 1}
+    shadowDrop: 7
+    shadowWidth: 1
     count: 10
   - name: Chest
     value: 5
     weight: 10
     speed: 1
     size: 0.7
-    animatedArt: {fileID: 0}
+    animatedArt: {fileID: -2253911629886400664, guid: 487869f5f569eb445b75bf062bf25493, type: 3}
     sprite: {fileID: 0}
     color: {r: 0.65, g: 0.4, b: 0.2, a: 1}
+    shadowDrop: 0
+    shadowWidth: 2
     count: 4
   - name: Idol
     value: 8
@@ -760,6 +768,8 @@ MonoBehaviour:
     animatedArt: {fileID: 0}
     sprite: {fileID: 0}
     color: {r: 0.3, g: 1, b: 0.6, a: 1}
+    shadowDrop: 7
+    shadowWidth: 1
     count: 2
   seed: 0
   practiceRivalCoins: 0

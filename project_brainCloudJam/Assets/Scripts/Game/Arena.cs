@@ -66,6 +66,10 @@ namespace LootLasso
             [Tooltip("Still art, if there's no animated art. Both empty = a placeholder circle in 'color'.")]
             public Sprite sprite;
             public Color color = Color.yellow;
+            [Tooltip("Animated art: how far below it the shadow sits on screen, in art pixels. Flyers (coins) want a gap; walkers (chests) want about 0, right under their feet.")]
+            public float shadowDrop = 7f;
+            [Tooltip("Animated art: shadow width (1 = 10 art pixels).")]
+            public float shadowWidth = 1f;
             [Tooltip("How many of these are in the field at the start of a match.")]
             public int count = 10;
         }
@@ -75,7 +79,7 @@ namespace LootLasso
         public List<TreasureKind> kinds = new List<TreasureKind>
         {
             new TreasureKind { name = "Coin",  value = 1,  weight = 1f, speed = 1f,   size = 0.4f, color = new Color(1f, 0.85f, 0.2f),  count = 10 },
-            new TreasureKind { name = "Chest", value = 5,  weight = 3f, speed = 2f,   size = 0.7f, color = new Color(0.65f, 0.4f, 0.2f), count = 4 },
+            new TreasureKind { name = "Chest", value = 5,  weight = 3f, speed = 2f,   size = 0.7f, color = new Color(0.65f, 0.4f, 0.2f), count = 4, shadowDrop = 0f, shadowWidth = 2f },
             new TreasureKind { name = "Idol",  value = 15, weight = 6f, speed = 3.5f, size = 0.6f, color = new Color(0.3f, 1f, 0.6f),   count = 2 },
         };
 
@@ -279,6 +283,12 @@ namespace LootLasso
             {
                 kinds[0].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/coin_sprite.aseprite");
                 if (kinds[0].animatedArt != null) wasMissing = true;
+            }
+            // ...and the second kind (Chest) the chest file.
+            if (kinds.Count > 1 && kinds[1].animatedArt == null)
+            {
+                kinds[1].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/treasurechest_sprite.aseprite");
+                if (kinds[1].animatedArt != null) wasMissing = true;
             }
             if (hunterRedFront == null) hunterRedFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_frontsprite.aseprite");
             // Mark the scene as changed, so Ctrl+S actually saves the clips (filling them in here doesn't on its own).
