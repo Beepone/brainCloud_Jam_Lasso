@@ -80,7 +80,7 @@ namespace LootLasso
         {
             new TreasureKind { name = "Coin",  value = 1,  weight = 1f, speed = 1f,   size = 0.4f, color = new Color(1f, 0.85f, 0.2f),  count = 10 },
             new TreasureKind { name = "Chest", value = 5,  weight = 3f, speed = 2f,   size = 0.7f, color = new Color(0.65f, 0.4f, 0.2f), count = 4, shadowDrop = 0f, shadowWidth = 2f },
-            new TreasureKind { name = "Idol",  value = 15, weight = 6f, speed = 3.5f, size = 0.6f, color = new Color(0.3f, 1f, 0.6f),   count = 2 },
+            new TreasureKind { name = "Idol",  value = 15, weight = 6f, speed = 3.5f, size = 0.6f, color = new Color(0.3f, 1f, 0.6f),   count = 2, shadowDrop = 4f, shadowWidth = 1.6f },
         };
 
         [Tooltip("Same seed = same starting layout and same wandering every match. 0 = a new random seed each match.")]
@@ -294,8 +294,14 @@ namespace LootLasso
             // ...and the second kind (Chest) the chest file.
             if (kinds.Count > 1 && kinds[1].animatedArt == null)
             {
-                kinds[1].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/treasurechest_sprite.aseprite");
+                kinds[1].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/treasurechestenemysprite.aseprite");
                 if (kinds[1].animatedArt != null) wasMissing = true;
+            }
+            // ...and the third (Idol) the idol file: one looping animation, playing all the time.
+            if (kinds.Count > 2 && kinds[2].animatedArt == null)
+            {
+                kinds[2].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/idol_sprite_mockup.aseprite");
+                if (kinds[2].animatedArt != null) wasMissing = true;
             }
             if (hunterRedFront == null) hunterRedFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_frontsprite.aseprite");
             // Mark the scene as changed, so Ctrl+S actually saves the clips (filling them in here doesn't on its own).

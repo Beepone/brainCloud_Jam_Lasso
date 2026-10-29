@@ -5,7 +5,8 @@ namespace LootLasso
     // TreasureArt: picks the animation for a piece of treasure drawn with animated art (an imported
     // Aseprite file, set as the kind's animatedArt on the Arena). Treasure.Spawn adds it.
     //
-    // Animations (Aseprite tags; the coin uses these. The chest's Idle and eight walk directions work too):
+    // Animations (Aseprite tags; the coin uses these. The chest's Idle and eight walk directions work too.
+    // Art with none of these, like the idol's single untagged loop, just keeps playing its one animation):
     //   idlefloat           pausing, or sitting in a hoard
     //   flyleftface         wandering, moving left on screen      flyrightface        ...moving right
     //   struggleleftface    caught on a rope, dragged leftwards   strugglerightface   ...dragged rightwards

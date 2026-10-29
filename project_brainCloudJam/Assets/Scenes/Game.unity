@@ -765,11 +765,11 @@ MonoBehaviour:
     weight: 6
     speed: 3.5
     size: 0.6
-    animatedArt: {fileID: 0}
+    animatedArt: {fileID: -2253911629886400664, guid: dc485d5452ff62a41b6c8ca688cde150, type: 3}
     sprite: {fileID: 0}
     color: {r: 0.3, g: 1, b: 0.6, a: 1}
-    shadowDrop: 7
-    shadowWidth: 1
+    shadowDrop: 4
+    shadowWidth: 1.6
     count: 2
   seed: 0
   practiceRivalCoins: 0
