@@ -8,11 +8,12 @@ namespace LootLasso
     //   NAME ENTRY    first launch only: pick a display name (saved on this device and in brainCloud)
     //   TITLE         Play (online), Practice (vs the bot), Leaderboard, How to Play, and your name
     //   SEARCHING     looking for an online rival (see NetMatch); gives up and plays the bot after a while
-    //   LEADERBOARD   the top 10 by total treasure ever (from brainCloud)
+    //   LEADERBOARD   the top 10 best single-match scores (from brainCloud)
     //   HOW TO PLAY   a short card explaining the throw
     //
     // On start it logs in to brainCloud (anonymously: the same player on this device every time). After
-    // each match it adds your score to the "total treasure ever" leaderboard.
+    // each match it posts your score to the high score leaderboard, which keeps your best match.
+    // (Not from the Unity editor, unless postScoresFromEditor is on, so test matches stay off it.)
     //
     // Drawn with OnGUI like the score display. The buttons use the UI art (UiKit).
     // The Arena adds this component automatically (see Arena.showMenus).
@@ -20,8 +21,10 @@ namespace LootLasso
     {
         public static MainMenu Current { get; private set; }
 
-        [Tooltip("brainCloud leaderboard ID: a CUMULATIVE leaderboard, so every match's score is added up.")]
-        public string leaderboardId = "TotalTreasure";
+        [Tooltip("brainCloud leaderboard ID: a HIGH_VALUE leaderboard (set up in the portal), so it keeps each player's best match.")]
+        public string leaderboardId = "Highscores";
+        [Tooltip("Post scores from matches played in the Unity editor too. Off, so test matches don't fill the real rankings.")]
+        public bool postScoresFromEditor = false;
         [Tooltip("Text size, as a fraction of the screen height.")]
         public float textSize = 0.032f;
 
@@ -98,10 +101,11 @@ namespace LootLasso
             int score = arena.FinalLocalScore; // yours, whichever side you played
             if (!loggedIn) { scoreStatus = "Offline: not saved"; return; }
             if (score <= 0) { scoreStatus = ""; return; }
+            if (Application.isEditor && !postScoresFromEditor) { scoreStatus = "Editor: score not saved"; return; }
 
             scoreStatus = "Saving score...";
             BrainCloudManager.Instance.PostScore(leaderboardId, score,
-                () => scoreStatus = $"+{score} treasure banked",
+                () => scoreStatus = $"Score {score} saved",
                 error => scoreStatus = "Couldn't save score");
         }
 
@@ -258,7 +262,7 @@ namespace LootLasso
 
         void DrawLeaderboard(int size)
         {
-            Label("TOTAL TREASURE", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
+            Label("HIGH SCORES", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
 
             if (topScores != null && topScores.Count > 0)
             {

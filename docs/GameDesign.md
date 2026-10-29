@@ -193,7 +193,7 @@ A phone's messages arrive about 0.3–0.6 s late, longer than most throws fly. T
 |---|---|---|
 | **Authentication** | Anonymous login plus a display name | ✅ working |
 | **RTT + Lobbies** | Matchmaking and in-match messages (lobby signals) | ✅ prototyped |
-| **Leaderboards** | **Total treasure ever** (cumulative leaderboard `TotalTreasure`; every match's final score is added), top 10 on the RANKINGS screen | ✅ working |
+| **Leaderboards** | **High scores**: each player's best single match (HIGH_VALUE leaderboard `Highscores`, never resets), top 10 on the HIGH SCORES screen. Switched from the cumulative `TotalTreasure` on Oct 29; `TotalTreasure` was cleared of test entries and `Highscores` starts empty. Matches played in the Unity editor don't post (MainMenu > Post Scores From Editor) | ✅ working |
 | Player statistics | Lifetime catches / steals / perfect throws on the results screen | Could have |
 
 ---

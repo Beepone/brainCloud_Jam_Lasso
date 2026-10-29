@@ -271,6 +271,10 @@ MonoBehaviour:
   minTightenTime: 0.15
   maxTightenTime: 0.6
   weightSlowdown: 0.1
+  trainGap: 1
+  leadGatherSpeed: 3
+  homeReelSpeed: 3
+  maxHaulSpeed: 3
   bounceOffWalls: 1
   bounceOffTopAndBottom: 0
   maxBounces: 3
@@ -677,6 +681,10 @@ MonoBehaviour:
   minTightenTime: 0.15
   maxTightenTime: 0.6
   weightSlowdown: 0.1
+  trainGap: 1
+  leadGatherSpeed: 3
+  homeReelSpeed: 3
+  maxHaulSpeed: 3
   bounceOffWalls: 1
   bounceOffTopAndBottom: 0
   maxBounces: 3
