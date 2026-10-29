@@ -85,10 +85,16 @@ Treasure is **anthropomorphised**: little characters that wander the field. Each
 - **Catching:** everything inside the loop when it lands is caught. Catch radius is 0.75 units.
 - **Weight:** heavier treasure is hauled back more slowly. A big haul ties you up while your rival keeps throwing.
 - **Wandering** is calculated from the match seed and clock, so both players see identical movement without any network traffic.
-- ✅ **Spooked:** free treasure within 1.8 units of a loop that lands without catching it sprints 2.6 units away from the landing point.
+- ✅ **Spooked:** free treasure within 1.8 units of a loop that lands without catching it sprints 2.6 units away from the landing point. Online, the host sends the spooks with its catch decision, so both screens agree.
 - **After night falls** (section 4b), all treasure wanders 25% faster.
 
-**Should have:** treasure struggles while being pulled, and celebrates or sulks in a hoard.
+**Art in (Oct 28–29):**
+- **Coin:** flies on little wings. Tags `idlefloat`, `flyleftface` / `flyrightface`, `struggleleftface` / `strugglerightface`.
+- **Chest:** a spider-legged chest that **walks in 8 directions** (`treasurechestenemysprite.aseprite`). `TreasureArt` picks the walk from its direction on screen (`walkforward` = down the screen, `backchestwalk` = up, plus left, right and the four diagonals), plays `Idle` when still or in a hoard, and keeps walking when dragged on a rope.
+- **Idol:** a **mockup** (`idol_sprite_mockup.aseprite`) with one untagged animation that loops all the time. The final art can be saved over the same file.
+- **Shadows** are set per treasure kind on the Arena (Shadow Drop, Shadow Width): flyers have a gap under them (coin 7 px, idol 4 px and wider), and the chest's shadow sits right under its feet.
+
+**Should have:** treasure celebrates or sulks in a hoard.
 **Could have:** a **Mimic** chest that bites your rope: whatever's on it drops back into the field.
 
 ---
@@ -107,7 +113,7 @@ Treasure is **anthropomorphised**: little characters that wander the field. Each
 | last 16 beats | Shake on every kick, every half beat for the last 4, and the timer counts 0:08 to 0:01 on the beat |
 
 - The light runs from noon to midnight over the match (`DayNight`), reading its golden hour and nightfall times from the Arena so light and gameplay agree.
-- Everything runs off the shared match clock and seed, so online players should see the same events. **Not yet tested between two devices.**
+- Everything runs off the shared match clock and seed, so online players see the same events. ✅ **Tested between two devices on Oct 28** (editor host vs. iPhone on itch, build 0.18): a full match with every event, and the final scores matched on both screens.
 - Settings: Arena > "Match events" (times, stampede size, night speed, spook radius and distance).
 
 ---
@@ -119,6 +125,8 @@ Treasure is **anthropomorphised**: little characters that wander the field. Each
 - Delivered treasure fills **evenly spaced spots** in the hoard (1.3 units apart), so steal throws line up on both screens.
 - *Reworked Oct 28.* A lasso landing on the **rival's hoard** snatches treasure out of it: a **steal** (STOLEN! popup, screen shake, the robbed hoard flashes). You can never catch from your own hoard.
 - **Steals don't score.** When the pull brings stolen treasure across the centre line, the rope **snaps** (KNOCKED LOOSE!) and the treasure hops loose there, back into play for either player. Anything caught in the field on the same throw keeps coming.
+- Snatched treasure **still counts for its owner until it's dragged out of their hoard**, so a steal only costs you once it actually leaves.
+- **Look:** each hoard has a light tint and a dashed 1-pixel line along its top and bottom in its hunter's colour (Oct 29; the old, stronger tint washed out the ground art).
 - ✅ **Guard window:** delivered or knocked-loose treasure blinks and can't be caught for 1 second.
 - The rival's hoard is at the far end, so a steal needs a near-top-speed spin: a real risk while your own hoard is open.
 
@@ -169,6 +177,14 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 - **Disconnects:** if the opponent leaves mid-match, the match ends and **the player who stays wins** (forfeit), whatever the score.
 - **Sides:** the host plays the bottom hoard, the guest the top, with its camera turned 180° so everyone sees themselves at the bottom. Hoards are coloured from each player's own view (yours blue, theirs red). The code is `Scripts/Game/NetMatch.cs`.
 
+### Dealing with network delay (Oct 28)
+A phone's messages arrive about 0.3–0.6 s late, longer than most throws fly. The first two-device tests showed lassos jumping to their target, throws that visibly landed on treasure but missed, and frozen treasure. Fixes:
+- **The other player's throw flies the whole way** from their hand, sped up so it lands when it did on their screen (but never faster than 0.12 s). No more jumping.
+- **The host judges a throw where the treasure was when it landed**, not where it is when the message arrives. Every treasure remembers its last 1.5 s of positions.
+- **The guest's rope stays taut** until the host says what was caught (at most 1.5 s more). If the answer comes after the rope is already back, the catch goes straight into the hoard instead of being left frozen in the field.
+- **The match music follows the match clock**, so it stays on the beat even when the clock is corrected.
+- Tested on Oct 28 (0.18): far more of the phone's throws landed, and both screens ended on the same score.
+
 ---
 
 ## 8. brainCloud features (judging requirement: Authentication + 1 more)
@@ -186,7 +202,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 
 1. **Title:** logo, Play, Rankings (the leaderboard), How to Play, Settings (volume).
 2. **Name entry:** on first launch only, saved to brainCloud.
-3. **Matchmaking:** "Looking for a rival..." with a countdown → bot match if none found.
+3. **Matchmaking:** "Looking for a rival..." with a countdown → bot match if none found. Once someone joins it says "Rival found! / Getting ready..." (the bot countdown is hidden).
 4. **Match HUD:** both scores, timer, your name and the rival's name.
 5. **Results:** win/lose, score breakdown (caught, stolen), Play Again / Title.
 6. **Leaderboard:** top 10 plus your rank.
@@ -203,6 +219,9 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 **itch.io embed:** **540 × 960** (3×) with a fullscreen button. Whole-number multiples of 180 × 320 keep the pixels even.
 **UI:** every button at least **~20 art px tall** (finger-sized), and nothing important in the top ~17 or bottom ~13 art px, where phone notches and home bars sit.
 **Delivery:** PNG (or `.aseprite` / `.psd` sources), committed under `project_brainCloudJam/Assets/Art/<Category>/`. Name files like `Treasure_Coin_Run.png`. Big files go through Git LFS automatically.
+**Sprites made in code** (placeholders, the rope, shadows, the ground) use the lit sprite material `Resources/SpriteLit.mat` on purpose: web builds otherwise give them an unlit one, and they stayed bright at night.
+**Renaming art:** rename files inside Unity's Project window, or move the `.meta` file with them. Renaming outside Unity gives the file a new ID and the scene loses it.
+**Pixel fonts as TTF:** `docs/art/fonts/` has both fonts as installable `.ttf` files (Loot Lasso Large and Small), for the itch page art. Use multiples of 14 px (Large) and 9 px (Small), with anti-aliasing off.
 **Pack-ready:** the art is also meant for a sellable asset pack (section 16). Keep layered source files, stick to one palette and pixels-per-unit, and only use your own work, or note anything else in `docs/Credits.md`.
 
 Who takes what is decided at the kickoff meeting. The two groups below are one natural split.
@@ -211,10 +230,10 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 | Asset | Frames / notes | Priority |
 |---|---|---|
 | Player character (top-down cowpoke) | Idle, Spin (lasso overhead), Throw, Pull. Two color variants (you vs. rival) | Must |
-| Lasso | Rope segment (tiles along a line), loop (open and closed) | Must |
-| Coin | Idle, Walk, Caught/struggle, In-hoard idle | Must |
-| Chest | Idle, Walk, Caught/struggle, In-hoard idle | Must |
-| Idol | Idle, Run, Caught/struggle, In-hoard idle | Must |
+| Lasso | Template sent Oct 29 (`docs/art/templates/lasso_*.png`): loop on a 35×35 canvas with tags `spin`, `fly`, `catch` (catch circle 34.5 px), and an 8×3 rope piece that repeats along the rope. Needs code once it arrives | Must |
+| Coin | ✅ in | Must |
+| Chest | ✅ in (8-direction walk) | Must |
+| Idol | Mockup in (one loop); final art to come | Must |
 | Treasure reactions | Scared/flee, celebrate | Should |
 | Mimic chest | Idle disguised, reveal/bite | Could |
 | Power-up items | One icon/sprite each | Could |
@@ -222,13 +241,13 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 ### World, UI and the itch.io page
 | Asset | Notes | Priority |
 |---|---|---|
-| Arena ground | Tileable ground plus edge/border | Must |
-| Two hoard zones | Clearly "mine" vs. "theirs" | Must |
+| Arena ground | ✅ in (`background_1.png`): one 180×320 screen, a dirt arena framed by grass and rocks. Set as Ground Art on the Arena; empty the slot to get the code-drawn sand back | Must |
+| Two hoard zones | Placeholder in code: light tint plus dashed edges in the hunter's colour | Must |
 | UI kit | Buttons, panels, score display, timer, font choice | Must |
 | Title logo | "Loot Lasso" | Must |
 | VFX | Catch puff, steal sparkle, deliver/coin burst, wall-bounce spark | Should |
 | Decorations | Cacti, rocks, props around the arena edge | Should |
-| itch.io page | Cover image **630×500**, banner, background, 3–5 screenshots, 1 GIF | Must (Oct 27–28) |
+| itch.io page | Cover image **630×500** (draw 315×250, export 2×), banner **960×300** (draw 320×100, export 3×), 3–5 screenshots from the final build, 1 GIF. Page text by the team's writer: a layout mockup with a brief for each section (no wording) is at https://claude.ai/artifact/VWayWsYAYeL71e7oSxwivi | Must (Oct 29) |
 
 ---
 
@@ -261,18 +280,20 @@ Source projects are in `SFX_Project/` (not committed yet, see section 14).
 - *Oct 23:* **milestone 5 done** (done before 3 and 4): title, first-launch name entry, How to Play, and a leaderboard of total treasure ever (brainCloud cumulative leaderboard `TotalTreasure`).
 - *Oct 24:* **milestone 4 done, two days early:** online 1v1 over lobby signals. PLAY ONLINE falls back to the bot after 15 s, and PRACTICE plays the bot directly. It was tested editor vs itch build: synced treasure, scores and timer, the match end, and forfeit when a player leaves. The web build is now a 540×960 canvas, and the Pixel Perfect Camera uses Stretch Fill so any browser zoom fills the frame. **The first phone test on itch looks good.**
 - *Oct 27:* the artists' pixel fonts for all text, plus the deliver, steal, bounce and win/lose sounds.
-- *Oct 28:* UI sounds, menu music, juice (shake, coin bursts, steal flash, beat-synced finale), the stealing rework, noon-to-midnight lighting, pixel shadows, a code-drawn stand-in desert floor, and the match events (section 4b). Match events came after the feature freeze; they need an online test between two devices.
+- *Oct 28:* UI sounds, menu music, juice (shake, coin bursts, steal flash, beat-synced finale), the stealing rework, noon-to-midnight lighting, pixel shadows, a code-drawn stand-in desert floor, and the match events (section 4b).
+- *Oct 28, later:* the first **itch.io release** (0.17, html5 channel via butler) and an itch web template. Two-device online tests (editor vs. iPhone) found the network-delay problems in section 7; fixed in 0.18 and retested: scores matched on both screens. Then the night-lighting fix for web builds and the matchmaking screen fix (0.19), the walking chest and the arena ground art (0.20).
+- *Oct 29:* the idol mockup (0.21), lighter hoards with dashed edges (0.22), the pixel fonts as TTF, the lasso art template, and the itch page mockup for the writer.
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
 | 1 | ✅ **The throw** | Swing and release with momentum and backlash, wall bounces, rope trail and tightening (done Oct 20, simplified Oct 22) | Wed Oct 21 | Coin/chest/idol idle + walk. Player idle/spin/throw |
 | 2 | ✅ **Solo match vs. bot** | Moving treasure, catching, hauling, hoards and scores, stealing, 2-minute timer, winner, bot (done Oct 22). **A complete, playable game** | Fri Oct 23 | Arena ground, hoard zones, lasso rope/loop |
-| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io ✅; **tested on a phone** ✅ (placeholders, Oct 24). In so far: fonts, hunters (blue/red, front/back), winner animations, coin, logo, UI components. Still placeholders: chest, idol, ground (code-drawn stand-in) | Sat Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
+| 3 | **Art in** | Artists' sprites replace the placeholders; portrait build on itch.io ✅; **tested on a phone** ✅ (placeholders, Oct 24). In so far: fonts, hunters (blue/red, front/back), winner animations, coin, chest, ground, logo, UI components, idol (mockup). Still placeholders: the lasso (template sent Oct 29) | Sat Oct 24 | Treasure caught/struggle anims, UI kit, title logo |
 | 4 | ✅ **Online 1v1** | Lobby matchmaking, synced match, host decides catches, bot after 15 s if nobody's found (done Oct 24) | Mon Oct 26 | VFX, decorations |
 | 5 | ✅ **Menus and brainCloud** | Title, name entry, How to Play, results, leaderboard (total treasure) | Tue Oct 27 | Fix-ups from playtests |
 | — | **🔒 Feature freeze** | Evening of **Tue Oct 27**: after this, only bugs, tuning and polish | | |
 | 6 | **Polish and sound** | Joey's SFX and music ✅ (treasure voices left), juice ✅ (shake, coin bursts, steal flash, finale) | Wed Oct 28 | **itch page:** cover 630×500, banner, screenshots, GIF |
-| 7 | **Ship** | itch.io page done, final build tested on desktop and phone (including an online match with the new match events), **submitted** | **Evening of Thu Oct 29** | Final check of the page |
+| 7 | **Ship** | itch.io page done, final build tested on desktop and phone (online with match events ✅ Oct 28), **submitted**. Left as of Oct 29: lasso art in code, a final build and online test, new screenshots, the itch page text and art, leaderboard test-entry cleanup, then submit | **Evening of Thu Oct 29** | Final check of the page |
 | — | **Deadline** | Fri Oct 30, 9:00 AM PT. No work planned | | |
 
 **Cut first if short on time:** power-ups (already a stretch goal), then the remaining treasure reactions, then treasure voices.
@@ -287,7 +308,7 @@ Source projects are in `SFX_Project/` (not committed yet, see section 14).
 | Risk | Plan |
 |---|---|
 | Online sync bugs eat the schedule | The bot match is a complete game on its own. If networking isn't solid by **Oct 26**, ship bot-first with online as a bonus |
-| Match events (Oct 28) desync online | They run off the shared clock and seed like the rest of the treasure, but haven't been tested between two devices. Test editor vs itch build before shipping |
+| Match events (Oct 28) desync online | ✅ Tested between two devices on Oct 28: in sync |
 | Nobody online during voting | Bot fallback after 15 s (Must) |
 | Art arrives late | Code uses placeholder shapes until art lands. Integrate art in batches (Oct 24, then whatever's ready by Oct 27) |
 | The throw is too hard for new players | How-to-Play card, generous defaults, tune on Oct 26 |
