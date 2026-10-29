@@ -28,6 +28,15 @@ namespace LootLasso
 
         void Start()
         {
+            // The artists' ground, if the Arena has it: one screen-sized picture, drawn once, centred on the camera.
+            var art = GetComponent<Arena>() != null ? GetComponent<Arena>().groundArt : null;
+            if (art != null)
+            {
+                ground = PlaceholderArt.CreateSprite("Ground", art, Color.white, YSort.Ground - 1, transform);
+                ground.transform.position = Vector3.zero;
+                return;
+            }
+
             var sprite = MakeSprite();
             ground = PlaceholderArt.CreateSprite("Stand-in Ground", sprite, Color.white, YSort.Ground - 1, transform);
             ground.transform.position = new Vector3(0f, 0f, 0f);

@@ -97,6 +97,8 @@ namespace LootLasso
         public bool showMenus = true;
         [Tooltip("Draw a desert floor made in code (StandInGround). Untick when the artists' ground art is in.")]
         public bool standInGround = true;
+        [Tooltip("The artists' ground: one 180 x 320 picture (exactly one screen), drawn behind everything in place of the code-made sand.")]
+        public Sprite groundArt;
 
         // An "event" lets other scripts ask to be told when something happens. The menu uses this
         // to save your score to the leaderboard. "System.Action" = a method with no inputs.
@@ -283,6 +285,11 @@ namespace LootLasso
             {
                 kinds[0].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/coin_sprite.aseprite");
                 if (kinds[0].animatedArt != null) wasMissing = true;
+            }
+            if (groundArt == null)
+            {
+                groundArt = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/background_1.png");
+                if (groundArt != null) wasMissing = true;
             }
             // ...and the second kind (Chest) the chest file.
             if (kinds.Count > 1 && kinds[1].animatedArt == null)
