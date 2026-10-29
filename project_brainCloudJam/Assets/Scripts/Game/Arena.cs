@@ -99,6 +99,10 @@ namespace LootLasso
         public bool standInGround = true;
         [Tooltip("The artists' ground: one 180 x 320 picture (exactly one screen), drawn behind everything in place of the code-made sand.")]
         public Sprite groundArt;
+        [Tooltip("The lasso loop while spinning (lasso_small). Both empty = the old pink placeholder circle.")]
+        public Sprite lassoSmall;
+        [Tooltip("The lasso loop once thrown (lasso_big), drawn at its catch size: 35 art pixels across.")]
+        public Sprite lassoBig;
 
         // An "event" lets other scripts ask to be told when something happens. The menu uses this
         // to save your score to the leaderboard. "System.Action" = a method with no inputs.
@@ -303,6 +307,9 @@ namespace LootLasso
                 kinds[2].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/idol_sprite_mockup.aseprite");
                 if (kinds[2].animatedArt != null) wasMissing = true;
             }
+            // The lasso loops: one frame each, so the first sprite in each file.
+            if (lassoSmall == null) { var f = LoadFrames("Assets/Sprites/lasso_small.aseprite"); if (f.Length > 0) { lassoSmall = f[0]; wasMissing = true; } }
+            if (lassoBig == null) { var f = LoadFrames("Assets/Sprites/lasso_big.aseprite"); if (f.Length > 0) { lassoBig = f[0]; wasMissing = true; } }
             if (hunterRedFront == null) hunterRedFront = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/explorer_red_16x16_frontsprite.aseprite");
             // Mark the scene as changed, so Ctrl+S actually saves the clips (filling them in here doesn't on its own).
             if (wasMissing && !Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);

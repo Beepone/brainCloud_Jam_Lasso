@@ -81,6 +81,14 @@ namespace LootLasso
 
         [Tooltip("Each unit of weight being hauled slows the pull by this fraction (0.1 = 10% slower per unit). Coin = 1, Chest = 3, Idol = 6.")]
         public float weightSlowdown = 0.1f;
+        [Tooltip("The catch is pulled in like a train: this far apart (world units) so the pieces don't overlap. 23 art pixels = 1 unit.")]
+        public float trainGap = 1f;
+        [Tooltip("How fast (units per second) the first piece slides onto the rope's end, and too-close pieces ease apart.")]
+        public float leadGatherSpeed = 3f;
+        [Tooltip("Once the rope's end reaches you, the train is reeled in the rest of the way at this speed (units per second, slower when heavy).")]
+        public float homeReelSpeed = 3f;
+        [Tooltip("With treasure on the rope, the pull is never faster than this (units per second). An empty loop comes back at the normal speed.")]
+        public float maxHaulSpeed = 3f;
 
         [Header("Wall bounces")]
         [Tooltip("The lasso bounces off the left and right edges of the screen. The throw distance includes the bounces.")]
@@ -129,12 +137,15 @@ namespace LootLasso
         readonly List<Vector2> ropePoints = new List<Vector2>();
         readonly List<Vector2> slackPoints = new List<Vector2>(); // the rope's shape the moment it landed
 
-        // What's on the rope: the caught treasures, and where each sits relative to the loop.
+        // What's on the rope: the caught treasures, in train order (nearest you first, see Haul).
         readonly List<Treasure> hooked = new List<Treasure>();
-        readonly List<Vector2> hookedOffsets = new List<Vector2>();
         readonly List<bool> hookedStolen = new List<bool>(); // was each one snatched from the other hoard? (it snaps free at the centre)
         float tightenStart, tightenTime;  // when tightening started, and how long it takes
         Vector3 loopSpinScale;   // the loop's size while spinning (from the scene)
+        SpriteRenderer loopArt;  // the artists' loop, if there is one (null = the placeholder)
+        Sprite lassoSmall, lassoBig;
+        float artSpin;                      // how far the loop art has turned (degrees)
+        const float RemoteArtSpin = 540f;   // degrees per second, for a throw with no spin speed of its own
 
         // ===== The hand =====
         // What the "hand" is doing this frame: pressed, let go, and where it is (world units).
@@ -221,6 +232,17 @@ namespace LootLasso
             // The loop and rope draw on top of everything (see YSort.cs), so you can always see your lasso.
             foreach (var loopSprite in loop.GetComponentsInChildren<SpriteRenderer>()) loopSprite.sortingOrder = YSort.Loop;
 
+            // The artists' loop, if the Arena has it: it takes over from the placeholder (which is hidden),
+            // switching between the small spinning loop and the big thrown one (see SizeLoop).
+            var arena = Arena.Current != null ? Arena.Current : FindFirstObjectByType<Arena>();
+            if (arena != null && arena.lassoSmall != null && arena.lassoBig != null)
+            {
+                lassoSmall = arena.lassoSmall;
+                lassoBig = arena.lassoBig;
+                foreach (var placeholder in loop.GetComponentsInChildren<SpriteRenderer>()) placeholder.enabled = false;
+                loopArt = PlaceholderArt.CreateSprite("Loop Art", lassoSmall, Color.white, YSort.Loop, loop);
+            }
+
             // The rope is drawn with the placeholder shapes from the old prototype
             // (Scripts/Lasso/PlaceholderArt.cs). The artists' sprites will replace them.
             // Rope pieces: one from the player to the first bounce (or the loop), then one more per bounce.
@@ -259,6 +281,12 @@ namespace LootLasso
 
             Vector2 playerPos = transform.position;
 
+            // Once something's caught, the loop disappears and the rope runs from piece to piece like a train
+            // (see Haul and DrawTies), so it reads as tied on rather than a ring hovering around them.
+            // (Before the phase's own update, which draws the rope and needs to know if the loop is showing.)
+            bool tied = hooked.Count > 0 && (phase == Phase.Tightening || phase == Phase.Returning);
+            ShowLoopSprite(!tied);
+
             // "switch" runs the block for the current phase. "break" ends the block.
             switch (phase)
             {
@@ -284,13 +312,21 @@ namespace LootLasso
                     float out01 = Vector2.Distance(loop.position, playerPos) / maxRange; // 0 = at the player, 1 = full distance
                     float returnSpeed = Mathf.Lerp(nearReturnSpeed, farReturnSpeed, out01);
                     returnSpeed /= 1f + caughtWeight * weightSlowdown; // heavier haul = slower pull
+                    if (hooked.Count > 0) returnSpeed = Mathf.Min(returnSpeed, maxHaulSpeed); // dragging treasure: never faster than this
                     loop.position = Vector2.MoveTowards(loop.position, playerPos, returnSpeed * Time.deltaTime);
-                    Haul();
+                    // Once the rope's end is home, the train is reeled the last stretch more slowly, so you see
+                    // each piece come in. (Heavier is still slower.)
+                    bool home = (Vector2)loop.position == playerPos;
+                    Haul(home ? homeReelSpeed / (1f + caughtWeight * weightSlowdown) : Mathf.Max(leadGatherSpeed, returnSpeed));
                     SnapStolen(); // a steal crossing the centre line snaps free
                     if ((Vector2)loop.position == playerPos)
                     {
-                        Deliver();
-                        EndThrow();
+                        // The rope's end is home, but the train behind it isn't: keep reeling, banking each
+                        // piece as it reaches you. The throw ends when the last one is in.
+                        SnapStolen(force: true); // a steal never makes it home (normally it already snapped at the centre)
+                        while (hooked.Count > 0 && Vector2.Distance(hooked[0].transform.position, playerPos) < 0.05f)
+                            DeliverOne(0);
+                        if (hooked.Count == 0) EndThrow();
                     }
                     break;
             }
@@ -314,6 +350,19 @@ namespace LootLasso
                 DrawRope(ropePoints);
             }
             // (Tightening draws its own rope, in UpdateTightening.)
+
+            // The loop art turns as it spins: at the loop's own speed and direction while winding up, and still
+            // turning in flight. (The other player's throw arrives without a spin speed, so it gets a steady one.)
+            if (loopArt != null)
+            {
+                if (phase == Phase.WindUp || phase == Phase.Flying)
+                    artSpin += (loopSpeed != 0f ? loopSpeed : RemoteArtSpin) * Time.deltaTime;
+                loopArt.transform.localRotation = Quaternion.Euler(0f, 0f, artSpin);
+            }
+
+            // The ties follow the catch (after Haul has moved it this frame).
+            if (hooked.Count > 0 && (phase == Phase.Tightening || phase == Phase.Returning)) DrawTies();
+            else HideTies();
 
             state = phase.ToString(); // readout
         }
@@ -395,7 +444,20 @@ namespace LootLasso
             // Move the loop by its own speed. Repeat keeps the angle between 0 and 360.
             loopAngle = Mathf.Repeat(loopAngle + loopSpeed * dt, 360f);
             loop.position = playerPos + Dir(loopAngle) * orbitRadius;
-            loop.localScale = loopSpinScale;
+            SizeLoop(open: false);
+        }
+
+        // The loop's look: small while spinning, open to its catch size once thrown. With the artists' art the
+        // sprite is swapped and drawn at its own size (the big one is drawn at the catch size); with the
+        // placeholder circle (1 unit across) it's scaled instead.
+        void SizeLoop(bool open)
+        {
+            if (loopArt != null)
+            {
+                loopArt.sprite = open ? lassoBig : lassoSmall;
+                loop.localScale = Vector3.one;
+            }
+            else loop.localScale = open ? Vector3.one * catchRadius * 2f : loopSpinScale;
         }
 
         // ===== Release: the throw =====
@@ -420,7 +482,7 @@ namespace LootLasso
             TracePath(loop.position, SwingDirection(), distance, flightPath);
             flightPoint = 0;
 
-            loop.localScale = Vector3.one * catchRadius * 2f; // the loop opens up to its catch size
+            SizeLoop(open: true); // the loop opens up to its catch size
             phase = Phase.Flying;
 
             // Tell anyone listening (online: NetMatch sends it to the other player).
@@ -511,7 +573,7 @@ namespace LootLasso
             flightPoint = 0;
 
             loop.gameObject.SetActive(true);
-            loop.localScale = Vector3.one * catchRadius * 2f;
+            SizeLoop(open: true);
             loop.position = info.start;
             phase = Phase.Flying;
 
@@ -631,7 +693,6 @@ namespace LootLasso
         public void ResetLasso()
         {
             hooked.Clear();
-            hookedOffsets.Clear();
             hookedStolen.Clear();
             caughtCount = 0;
             caughtWeight = 0f;
@@ -689,7 +750,6 @@ namespace LootLasso
         {
             if (found.Count > 0) Hooked?.Invoke(this);
             hooked.Clear();
-            hookedOffsets.Clear();
             hookedStolen.Clear();
             caughtWeight = 0f;
 
@@ -697,7 +757,11 @@ namespace LootLasso
             pullStart = landing;
             Rect home = HomeHoard;
             int stolenValue = 0;
-            foreach (var t in found)
+            // In train order: the piece nearest you first (it leads the pull, see Haul).
+            Vector2 me = transform.position;
+            var inOrder = new List<Treasure>(found);
+            inOrder.Sort((a, b) => Vector2.Distance(a.transform.position, me).CompareTo(Vector2.Distance(b.transform.position, me)));
+            foreach (var t in inOrder)
             {
                 bool stolen = t.state == Treasure.State.InHoard && t.hoard != home;
                 if (stolen) stolenValue += t.value;
@@ -707,8 +771,6 @@ namespace LootLasso
                 t.Hook(this);
                 hooked.Add(t);
                 hookedStolen.Add(stolen);
-                // Where it sits inside the loop (kept within the loop, in case the decision arrived late).
-                hookedOffsets.Add(Vector2.ClampMagnitude((Vector2)t.transform.position - landing, catchRadius));
                 caughtWeight += t.weight;
             }
 
@@ -749,7 +811,6 @@ namespace LootLasso
             int i = hooked.IndexOf(t);
             if (i < 0) return;
             hooked.RemoveAt(i);
-            hookedOffsets.RemoveAt(i);
             hookedStolen.RemoveAt(i);
             caughtWeight -= t.weight;
             caughtCount = hooked.Count;
@@ -792,7 +853,6 @@ namespace LootLasso
                 var t = hooked[i];
                 caughtWeight -= t.weight;
                 hooked.RemoveAt(i);
-                hookedOffsets.RemoveAt(i);
                 hookedStolen.RemoveAt(i);
                 t.transform.position = snapAt;
                 t.KnockLoose(arena);
@@ -803,36 +863,56 @@ namespace LootLasso
             Snapped?.Invoke(this);
         }
 
-        // Every frame of the pull: the caught treasure rides along with the loop, bunching up as it's dragged.
-        void Haul()
+        // Every frame of the pull: the catch comes in like a train. The first piece (nearest you) slides onto
+        // the end of the rope, and each one after trails the piece ahead of it by trainGap: dragged along when
+        // the gap stretches, easing back when it's too close, so they never pile on top of each other.
+        // leadSpeed: how fast the first piece moves toward the rope's end (units per second). Once the rope's
+        // end is home, that's how fast the train carries on into your hoard, one piece at a time.
+        void Haul(float leadSpeed)
         {
-            Vector2 loopPos = loop.position;
+            Vector2 ahead = loop.position;     // what this piece follows: the rope's end, then the piece in front
+            Vector2 away = ((Vector2)loop.position - (Vector2)transform.position).normalized; // back along the rope, away from you
+            if (away == Vector2.zero) away = HomeHoard.center.y < transform.position.y ? Vector2.up : Vector2.down; // rope's end is home: out toward the field
             for (int i = 0; i < hooked.Count; i++)
             {
-                // Each offset slides toward zero (1 unit per second), so the treasure gathers into the loop.
-                hookedOffsets[i] = Vector2.MoveTowards(hookedOffsets[i], Vector2.zero, Time.deltaTime);
-                hooked[i].transform.position = loopPos + hookedOffsets[i];
+                Vector2 pos = hooked[i].transform.position;
+                if (i == 0)
+                {
+                    pos = Vector2.MoveTowards(pos, ahead, leadSpeed * Time.deltaTime);
+                }
+                else
+                {
+                    Vector2 back = pos - ahead;
+                    Vector2 dir = back.sqrMagnitude > 0.0001f ? back.normalized : away; // right on top: trail behind
+                    Vector2 spot = ahead + dir * trainGap;
+                    // Too far: it's dragged, so it snaps to the gap. Too close: it eases out to it.
+                    pos = back.magnitude > trainGap ? spot : Vector2.MoveTowards(pos, spot, leadGatherSpeed * Time.deltaTime);
+                }
+                hooked[i].transform.position = pos;
+                ahead = pos;
             }
         }
 
-        // The loop reached you: the catch goes into your hoard.
+        // One piece of the train reached you: it goes into your hoard.
+        void DeliverOne(int i)
+        {
+            var t = hooked[i];
+            t.StoreIn(HomeHoard, Arena.Current);
+            ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over the piece as it lands
+            lastThrow += $" | +{t.value}";
+            hooked.RemoveAt(i);
+            hookedStolen.RemoveAt(i);
+            caughtWeight -= t.weight; // lighter now, so the rest comes in a little faster
+            caughtCount = hooked.Count;
+            Delivered?.Invoke(this, new List<Treasure> { t });
+        }
+
+        // Everything still on the rope goes into your hoard at once (a throw finished early, or a catch
+        // decision that arrived after the rope was already back).
         void Deliver()
         {
             SnapStolen(force: true); // a steal never makes it home (normally it already snapped at the centre)
-            var arena = Arena.Current;
-            int gained = 0;
-            foreach (var t in hooked)
-            {
-                t.StoreIn(HomeHoard, arena);
-                gained += t.value;
-                ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over each piece as it lands
-            }
-            if (gained > 0) lastThrow += $" | +{gained}";
-            if (hooked.Count > 0) Delivered?.Invoke(this, hooked);
-            hooked.Clear();
-            hookedOffsets.Clear();
-            hookedStolen.Clear();
-            caughtCount = 0;
+            while (hooked.Count > 0) DeliverOne(0);
             caughtWeight = 0f;
         }
 
@@ -905,19 +985,74 @@ namespace LootLasso
             new Vector2(Mathf.Cos(degrees * Mathf.Deg2Rad), Mathf.Sin(degrees * Mathf.Deg2Rad));
 
         // Draws the rope through a list of points: one straight piece between each pair of neighbours.
+        // The last point is the loop's centre; while the loop is showing, the rope stops at its edge instead.
         void DrawRope(List<Vector2> points)
         {
             for (int i = 0; i < ropePieces.Length; i++)
             {
                 bool used = i + 1 < points.Count; // piece i goes from point i to point i+1
                 ropePieces[i].enabled = used;
-                if (used) StretchBetween(ropePieces[i].transform, points[i], points[i + 1], 0.06f);
+                if (!used) continue;
+                Vector2 from = points[i], to = points[i + 1];
+                if (i + 2 == points.Count) // the last piece: stop at the loop's edge, or run to the lead catch
+                {
+                    bool toCatch = !loopShowing && hooked.Count > 0;
+                    if (toCatch) to = hooked[0].transform.position;
+                    to = Vector2.MoveTowards(to, from, Mathf.Min(toCatch ? TieShort : LoopRadius, Vector2.Distance(from, to)));
+                }
+                StretchBetween(ropePieces[i].transform, from, to, RopeThickness);
             }
         }
 
         void HideRope()
         {
             foreach (var piece in ropePieces) piece.enabled = false;
+            HideTies();
+        }
+
+        const float RopeThickness = 0.06f;
+
+        // How far the rope stops short of the loop's centre: the loop's radius on screen, less one art pixel
+        // so it overlaps the ring. (The placeholder circle is 1 unit across, scaled.)
+        float LoopRadius => loopArt != null && loopArt.sprite != null
+            ? loopArt.sprite.rect.width * 0.5f / loopArt.sprite.pixelsPerUnit - 1f / 23f
+            : loop.localScale.x * 0.5f;
+
+        // Shows or hides the loop's picture (the loop object itself keeps moving either way).
+        bool loopShowing = true;
+        void ShowLoopSprite(bool show)
+        {
+            if (show == loopShowing) return;
+            loopShowing = show;
+            if (loopArt != null) loopArt.enabled = show;
+            else foreach (var sr in loop.GetComponentsInChildren<SpriteRenderer>(true)) sr.enabled = show;
+        }
+
+        // ===== Ties: the rope runs on from one caught treasure to the next =====
+        // The catch comes in as a train (see Haul): the main rope runs to the first piece (DrawRope), and a
+        // short link joins each piece to the one behind it. Every link stops a little short of each piece's
+        // middle, so it looks tied around it.
+        readonly List<SpriteRenderer> ties = new List<SpriteRenderer>();
+        const float TieShort = 0.15f; // how far short of a treasure's middle the rope stops (about 3 art pixels)
+
+        void DrawTies()
+        {
+            // Link i joins piece i-1 to piece i (there's no link 0: the main rope reaches piece 0).
+            for (int i = 1; i < hooked.Count; i++)
+            {
+                while (ties.Count < i) ties.Add(PlaceholderArt.CreateSprite("Tie " + ties.Count, PlaceholderArt.Square, RopeColor, YSort.Rope));
+                var tie = ties[i - 1];
+                Vector2 ahead = hooked[i - 1].transform.position, at = hooked[i].transform.position;
+                bool show = Vector2.Distance(ahead, at) > TieShort * 2f + 0.02f;
+                tie.enabled = show;
+                if (show) StretchBetween(tie.transform, Vector2.MoveTowards(ahead, at, TieShort), Vector2.MoveTowards(at, ahead, TieShort), RopeThickness);
+            }
+            for (int i = Mathf.Max(hooked.Count - 1, 0); i < ties.Count; i++) ties[i].enabled = false;
+        }
+
+        void HideTies()
+        {
+            foreach (var tie in ties) tie.enabled = false;
         }
 
         // Stretches a 1x1 square sprite into a thin line between two points.

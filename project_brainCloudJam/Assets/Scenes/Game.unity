@@ -777,6 +777,8 @@ MonoBehaviour:
   showMenus: 1
   standInGround: 1
   groundArt: {fileID: 21300000, guid: 3de934cbd8ccf56429f74864924ea532, type: 3}
+  lassoSmall: {fileID: -1872935272007510692, guid: f7bfcb478d999de429eb560c2bb782c2, type: 3}
+  lassoBig: {fileID: 7193038770224942513, guid: a708386eb93238c48b232f5f2382fa86, type: 3}
   lassoTwirl: {fileID: 8300000, guid: 84ba041365fc69447a948346679b70f2, type: 3}
   lassoThrow: {fileID: 8300000, guid: 3b4db98f5b389934888923d0e6d595d1, type: 3}
   lassoGrab: {fileID: 8300000, guid: bf5d42948a49af2468c5723709fd13c0, type: 3}

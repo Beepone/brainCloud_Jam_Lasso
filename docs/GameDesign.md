@@ -57,11 +57,11 @@ Match length is **2 minutes**, exactly the length of the gameplay track (112 BPM
 | **Release** | Let go when the loop is swinging toward your target | The lasso flies out. Too slow a spin (under half a circle per second) just drops it. **No aim line:** reading the swing is the skill. |
 | **Flight** | — | It **bounces off the left and right screen edges** (up to 3 bounces; the distance includes them) and stops if it reaches the top or bottom edge. The rope lies along its path. |
 | **Catch** | — | Everything free inside the landed loop (radius 0.75) is caught. |
-| **Pull back** | — | The rope **tightens** into a straight line (0.15–0.6 s), then the loop is pulled in **slower the farther out it is** (10 units/s near, 4 at full distance) **and slower the heavier the catch** (10% per unit of weight). The rope only snaps on a steal (section 5). |
+| **Pull back** | — | The rope **tightens** into a straight line (0.15–0.6 s), then it's pulled in. An **empty loop** comes back slower the farther out it is (10 units/s near, 2 at full distance). **With treasure on it** the pull is at most **3 units/s** (Max Haul Speed) and slower the heavier the catch (10% per unit of weight). The catch comes in **like a train** (Oct 29): pieces in a line nearest-first, 1 unit apart (Train Gap), the rope tied from piece to piece, and each piece is banked only when it reaches you. The rope only snaps on a steal (section 5). |
 
 **Numbers (Inspector fields on `LassoSpin`, Scripts/Game):**
 - **Distance:** 1.5 to 12 units, squared curve: about 2 units at 1 circle/s, 5 at 2, 12 at 3. **Reaching the rival's hoard is a skill shot**, and slow to recover from.
-- **Weight → haul time:** Coin = 1, Idol = 6, Chest = 10. A chest comes back at half the speed of an empty loop, so grabbing one is a commitment.
+- **Weight → haul time:** Coin = 1, Idol = 6, Chest = 10. A chest comes back at half the haul speed, so grabbing one is a commitment: a full-distance haul takes several seconds while your rival keeps throwing.
 - **Mouse and touch:** input goes through the Input System's `Pointer`.
 
 **Tried and dropped** (all in git history): flick to throw, wind-up then swipe, a timing ring with a PERFECT bonus, rope tangling (replaced by backlash), loop size from circle width with rope strength and snapping, and the aim line / landing ring. All cut to keep the controls to one idea a new player gets in seconds.
@@ -230,7 +230,7 @@ Who takes what is decided at the kickoff meeting. The two groups below are one n
 | Asset | Frames / notes | Priority |
 |---|---|---|
 | Player character (top-down cowpoke) | Idle, Spin (lasso overhead), Throw, Pull. Two color variants (you vs. rival) | Must |
-| Lasso | Template sent Oct 29 (`docs/art/templates/lasso_*.png`): loop on a 35×35 canvas with tags `spin`, `fly`, `catch` (catch circle 34.5 px), and an 8×3 rope piece that repeats along the rope. Needs code once it arrives | Must |
+| Lasso | ✅ Loops in (Oct 29): `lasso_small` (11 px, while spinning) and `lasso_big` (35 px, thrown, exactly the catch circle), set on the Arena. Single frames; the art turns with the spin. The rope ends at the loop's edge, and once something's caught the loop hides and the rope runs piece to piece. **Rope piece still to come** (template: `docs/art/templates/lasso_*.png`, 8×3, repeats along the rope); the rope is a code-drawn line until then | Must |
 | Coin | ✅ in | Must |
 | Chest | ✅ in (8-direction walk) | Must |
 | Idol | Mockup in (one loop); final art to come | Must |
@@ -282,7 +282,7 @@ Source projects are in `SFX_Project/` (not committed yet, see section 14).
 - *Oct 27:* the artists' pixel fonts for all text, plus the deliver, steal, bounce and win/lose sounds.
 - *Oct 28:* UI sounds, menu music, juice (shake, coin bursts, steal flash, beat-synced finale), the stealing rework, noon-to-midnight lighting, pixel shadows, a code-drawn stand-in desert floor, and the match events (section 4b).
 - *Oct 28, later:* the first **itch.io release** (0.17, html5 channel via butler) and an itch web template. Two-device online tests (editor vs. iPhone) found the network-delay problems in section 7; fixed in 0.18 and retested: scores matched on both screens. Then the night-lighting fix for web builds and the matchmaking screen fix (0.19), the walking chest and the arena ground art (0.20).
-- *Oct 29:* the idol mockup (0.21), lighter hoards with dashed edges (0.22), the pixel fonts as TTF, the lasso art template, and the itch page mockup for the writer.
+- *Oct 29:* the idol mockup (0.21), lighter hoards with dashed edges (0.22), the pixel fonts as TTF, the lasso art template, the itch page mockup for the writer, then the lasso loop art, its spin, and the train-style haul with a slower, capped pull (0.23).
 
 | # | Milestone | Done when | Target | Artists, same window |
 |---|---|---|---|---|
