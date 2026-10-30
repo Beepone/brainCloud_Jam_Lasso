@@ -47,8 +47,8 @@ namespace LootLasso
         bool wasFlying;
         bool fadingThrow;
 
-        // Yours at full volume; the other player's quieter.
-        float Loudness => spin.control == LassoSpin.Control.Pointer ? 1f : otherPlayerVolume;
+        // Yours at full volume; the other player's quieter. Both scaled by the player's sound volume (SoundOptions).
+        float Loudness => (spin.control == LassoSpin.Control.Pointer ? 1f : otherPlayerVolume) * SoundOptions.Sfx;
 
         void Start()
         {
@@ -149,7 +149,7 @@ namespace LootLasso
         void OnSnapped(LassoSpin _)
         {
             var arena = Arena.Current;
-            if (arena != null && arena.ropeBounce != null) effectSource.PlayOneShot(arena.ropeBounce, Mathf.Min(1f, bounceVolume * 1.4f));
+            if (arena != null && arena.ropeBounce != null) effectSource.PlayOneShot(arena.ropeBounce, Mathf.Min(1f, bounceVolume * 1.4f) * SoundOptions.Sfx);
         }
 
         void OnStole(LassoSpin _, int value)
@@ -159,7 +159,7 @@ namespace LootLasso
             // Is this lasso the player at this computer? Then YOU stole; otherwise the rival stole from you.
             bool mine = spin.side == arena.localSide;
             var clip = mine ? arena.playerSteals : arena.rivalSteals;
-            if (clip != null) effectSource.PlayOneShot(clip, stealVolume);
+            if (clip != null) effectSource.PlayOneShot(clip, stealVolume * SoundOptions.Sfx);
         }
 
         void OnDelivered(LassoSpin _, System.Collections.Generic.List<Treasure> pieces)

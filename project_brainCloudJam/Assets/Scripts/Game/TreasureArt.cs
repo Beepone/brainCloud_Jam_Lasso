@@ -5,8 +5,8 @@ namespace LootLasso
     // TreasureArt: picks the animation for a piece of treasure drawn with animated art (an imported
     // Aseprite file, set as the kind's animatedArt on the Arena). Treasure.Spawn adds it.
     //
-    // Animations (Aseprite tags; the coin uses these. The chest's Idle and eight walk directions work too.
-    // Art with none of these, like the idol's single untagged loop, just keeps playing its one animation):
+    // Animations (Aseprite tags; the coin uses these. The chest's Idle and eight walk directions work too,
+    // and so do the idol's four floats, see FourWay. Art with none of these just keeps playing its default):
     //   idlefloat           pausing, or sitting in a hoard
     //   flyleftface         wandering, moving left on screen      flyrightface        ...moving right
     //   struggleleftface    caught on a rope, dragged leftwards   strugglerightface   ...dragged rightwards
@@ -41,6 +41,15 @@ namespace LootLasso
             "rightfacewalk", "backrightwalk", "backchestwalk", "backleftwalk",
             "leftfacewalk", "frontleftwalk", "walkforward", "frontrightwalk",
         };
+
+        // The idol's four floats: right, away (up the screen), left, toward the viewer (also its idle).
+        // Each lists the spellings to try: the art file has "rightloat" for now, so both work.
+        static readonly string[][] FourWay =
+        {
+            new[] { "rightfloat", "rightloat" }, new[] { "backfloat" },
+            new[] { "leftfloat" }, new[] { "idle/flyforward" },
+        };
+        int fourWay = 3; // which of FourWay it's heading, on screen (3 = toward the viewer)
 
         Treasure treasure;
         Animator animator;
@@ -86,16 +95,18 @@ namespace LootLasso
                 float screenUp = Vector2.Dot(moved, cam.transform.up);
                 float angle = Mathf.Atan2(screenUp, screenRight) * Mathf.Rad2Deg;
                 heading = EightWay[(Mathf.RoundToInt(angle / 45f) + 8) % 8];
+                fourWay = (Mathf.RoundToInt(angle / 90f) + 4) % 4; // the same, to the nearest 90°
             }
 
             string face = facingRight ? "rightface" : "leftface";
             // Each state lists the coin's tag first, then the chest's eight-way walk (the chest walks instead
-            // of flying, and has no struggle, so it keeps walking the way it's dragged).
+            // of flying, and has no struggle, so it keeps walking the way it's dragged), then the idol's float.
+            string[] four = FourWay[fourWay];
             string[] wanted = treasure.state switch // "switch" picks one answer by the state's value
             {
-                Treasure.State.Hooked => new[] { "struggle" + face, "fly" + face, heading },
-                Treasure.State.Free when moving => new[] { "fly" + face, heading },
-                _ => new[] { "idlefloat", "Idle" }, // "_" = anything else: pausing, or in a hoard
+                Treasure.State.Hooked => Join(new[] { "struggle" + face, "fly" + face, heading }, four),
+                Treasure.State.Free when moving => Join(new[] { "fly" + face, heading }, four),
+                _ => new[] { "idlefloat", "Idle", "idle/flyforward" }, // "_" = anything else: pausing, or in a hoard
             };
 
             foreach (var next in wanted)
@@ -108,6 +119,14 @@ namespace LootLasso
                 }
                 break;
             }
+        }
+
+        static string[] Join(string[] a, string[] b)
+        {
+            var all = new string[a.Length + b.Length];
+            a.CopyTo(all, 0);
+            b.CopyTo(all, a.Length);
+            return all;
         }
 
         bool Has(string state) => animator.HasState(0, Animator.StringToHash(state));

@@ -16,8 +16,8 @@ namespace LootLasso
         public float popupTime = 1.2f;
 
         // Text colours: each player's score is shown in their hunter's colour (blue or red, picked per match).
-        static readonly Color BlueText = new Color(0.55f, 0.75f, 1f);
-        static readonly Color RedText = new Color(1f, 0.55f, 0.55f);
+        static readonly Color BlueText = Palette.Teal;
+        static readonly Color RedText = Palette.Red;
         static Color YourColor => Arena.Current != null && !Arena.Current.LocalIsBlue ? RedText : BlueText;
         static Color RivalColor => Arena.Current != null && !Arena.Current.LocalIsBlue ? BlueText : RedText;
 
@@ -58,6 +58,27 @@ namespace LootLasso
             return 1f + 0.4f * (1f - t) * (1f - t); // (1 - t) squared: fast at first, then gently settles
         }
 
+        // The scores are labelled with the players' names: yours, and online the rival's, or the bot's cowboy name
+        // (MainMenu.botName). Cut to 8 letters so the rival's clears the timer on the top row.
+        const int MaxShownName = 8;
+        static string YourLabel => ShortName(MainMenu.Current != null ? MainMenu.Current.playerName : null, "YOU");
+        static string RivalLabel => ShortName(Online ? Arena.Current.GetComponent<NetMatch>().rivalName
+                                                     : MainMenu.Current != null ? MainMenu.Current.botName : null, "RIVAL");
+        static bool Online
+        {
+            get
+            {
+                var net = Arena.Current != null ? Arena.Current.GetComponent<NetMatch>() : null;
+                return net != null && net.IsOnline;
+            }
+        }
+        static string ShortName(string name, string fallback)
+        {
+            if (string.IsNullOrEmpty(name)) return fallback;
+            name = name.Trim().ToUpperInvariant();
+            return name.Length <= MaxShownName ? name : name.Substring(0, MaxShownName);
+        }
+
         // Scripts keep static lists between plays (domain reload is off in this project), so clear it on start.
         void Awake() { popups.Clear(); yourBumpTime = rivalBumpTime = -99f; }
 
@@ -84,14 +105,14 @@ namespace LootLasso
             // Positions are in ART PIXELS of the 180 x 320 screen (see docs/art/UITemplates.md), not world
             // positions, so they stay in the same place on screen even when the camera is turned around.
             // Your score: centred in the strip under your hoard (row 301).
-            DrawTextAtPixel($"YOU  {yourScore}", 90, 301, YourColor, style, Align.Center, BumpScale(Time.time - yourBumpTime));
+            DrawTextAtPixel($"{YourLabel}  {yourScore}", 90, 301, YourColor, style, Align.Center, BumpScale(Time.time - yourBumpTime));
 
             // The rival's score and the timer, top row. Hidden once the match is over: the result panel shows
             // both scores, and the winner portrait stands up there.
             if (!arena.isOver)
             {
                 // The rival's score: top-left, row 22 (below the ~17 px where phone notches sit).
-                DrawTextAtPixel($"RIVAL  {rivalScore}", 6, 22, RivalColor, style, Align.Left, BumpScale(Time.time - rivalBumpTime));
+                DrawTextAtPixel($"{RivalLabel}  {rivalScore}", 6, 22, RivalColor, style, Align.Left, BumpScale(Time.time - rivalBumpTime));
 
                 // The timer: top-right, row 22. Red in the last 10 seconds.
                 // CeilToInt rounds up, so it shows 2:00 at the start and only reaches 0:00 when time is truly up.
@@ -106,7 +127,7 @@ namespace LootLasso
                     shown = beatShown;
                 }
                 string clock = $"{secondsLeft / 60}:{secondsLeft % 60:00}"; // "/" = whole minutes, "%" = remaining seconds
-                Color clockColor = secondsLeft <= 10 ? new Color(1f, 0.35f, 0.3f) : Color.white;
+                Color clockColor = secondsLeft <= 10 ? Palette.Orange : Palette.Bone;
                 // In the last 10 seconds it also pulses: big each time the number changes, shrinking back over
                 // a third of a second.
                 float pulse = 1f;
@@ -164,30 +185,34 @@ namespace LootLasso
             }
             else
             {
-                GUI.color = new Color(0f, 0f, 0f, 0.75f);
+                GUI.color = Palette.WithAlpha(Palette.Night, 0.75f);
                 GUI.DrawTexture(panel, Texture2D.whiteTexture);
                 GUI.color = Color.white;
             }
 
             var title = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(size * 1.8f), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             var line = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.MiddleCenter };
-            title.normal.textColor = arena.result == "YOU WIN!" ? new Color(1f, 0.85f, 0.2f)
+            title.normal.textColor = arena.result == "YOU WIN!" ? Palette.Gold
                                    : arena.result == "RIVAL WINS" ? RivalColor
-                                   : Color.white;
-            line.normal.textColor = Color.white;
+                                   : Palette.Bone;
+            line.normal.textColor = Palette.Bone;
 
             float row = h / 6f; // split the panel into 6 rows
-            PanelText(arena.result, new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), title, large: true);
+            // The title names the rival ("COGBURN WINS"). (arena.result itself stays "RIVAL WINS": other code checks it.)
+            string titleText = arena.result == "RIVAL WINS" ? $"{RivalLabel} WINS" : arena.result;
+            PanelText(titleText, new Rect(panel.x, panel.y + row * 0.3f, w, row * 1.4f), title, large: true);
             PanelText(arena.resultReason, new Rect(panel.x, panel.y + row * 1.6f, w, row), line, large: false);
-            PanelText($"You {arena.FinalLocalScore}  -  Rival {arena.FinalOpponentScore}", new Rect(panel.x, panel.y + row * 2.4f, w, row), line, large: false);
+            // The scores, one player per line (two names and scores don't fit across the panel on one).
+            PanelText($"{YourLabel}  {arena.FinalLocalScore}", new Rect(panel.x, panel.y + row * 2.35f, w, row), line, large: false);
+            PanelText($"{RivalLabel}  {arena.FinalOpponentScore}", new Rect(panel.x, panel.y + row * 2.95f, w, row), line, large: false);
 
             // What happened to the score on the leaderboard (from the menu, if there is one).
             var menu = MainMenu.Current;
             if (menu != null && !string.IsNullOrEmpty(menu.scoreStatus))
             {
                 var small = new GUIStyle(line) { fontSize = Mathf.RoundToInt(size * 0.75f) };
-                small.normal.textColor = new Color(0.8f, 0.9f, 0.8f);
-                PanelText(menu.scoreStatus, new Rect(panel.x, panel.y + row * 3.2f, w, row), small, large: false);
+                small.normal.textColor = Palette.Ash;
+                PanelText(menu.scoreStatus, new Rect(panel.x, panel.y + row * 3.65f, w, row), small, large: false);
             }
 
             // GUI.Button draws a button and returns true on the frame it's clicked.
@@ -305,7 +330,7 @@ namespace LootLasso
                             : TextAnchor.MiddleCenter;
             var rect = new Rect(x, Screen.height - screen.y - 50f, 400f, 100f);
 
-            style.normal.textColor = new Color(0f, 0f, 0f, color.a * 0.7f);
+            style.normal.textColor = Palette.WithAlpha(Palette.Night, color.a * 0.7f);
             GUI.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width, rect.height), text, style); // shadow
             style.normal.textColor = color;
             GUI.Label(rect, text, style);

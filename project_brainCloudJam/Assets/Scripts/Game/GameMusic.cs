@@ -11,6 +11,7 @@ namespace LootLasso
     //   STING   on the result panel: the win one, or the lose one (nothing on a draw).
     //
     // Menu and match music crossfade: one fades out while the other fades in.
+    // Everything here is scaled by the player's music volume (SoundOptions.Music, set on the OPTIONS screen).
     // The Arena adds this, and the clips live on the Arena (menuStart, menuLoop, gameplayMusic, winSting, loseSting).
     //
     // The loop tracks should loop seamlessly on their own: an exact number of bars, exported with the reverb
@@ -82,7 +83,7 @@ namespace LootLasso
                      : null; // a draw: just the music fading out
             if (clip == null) return;
             stingSource.clip = clip;
-            stingSource.volume = stingVolume;
+            stingSource.volume = stingVolume * SoundOptions.Music;
             stingSource.Play();
         }
 
@@ -115,7 +116,7 @@ namespace LootLasso
                     nextResync = Time.realtimeSinceStartup + 1f; // give it a moment to actually start (browsers decode first)
                 }
                 else KeepInStep();
-                FadeTo(source, volume, fadeInTime);
+                FadeTo(source, volume * SoundOptions.Music, fadeInTime);
             }
             else if (source.isPlaying)
             {
@@ -181,8 +182,8 @@ namespace LootLasso
                     menuLoop.Play();
                     loopStartsAt = 0;
                 }
-                FadeTo(menuStart, menuVolume, fadeInTime);
-                FadeTo(menuLoop, menuVolume, fadeInTime);
+                FadeTo(menuStart, menuVolume * SoundOptions.Music, fadeInTime);
+                FadeTo(menuLoop, menuVolume * SoundOptions.Music, fadeInTime);
             }
             else if (menuOn)
             {

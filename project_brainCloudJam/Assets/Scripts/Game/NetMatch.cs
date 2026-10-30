@@ -31,7 +31,7 @@ namespace LootLasso
         [Tooltip("brainCloud lobby type with no server (Design > Multiplayer > Lobbies). Used only to pass signals.")]
         public string lobbyType = "LassoLobby";
         [Tooltip("Seconds to look for a human rival before playing the bot instead.")]
-        public float searchTimeout = 15f;
+        public float searchTimeout = 60f;
         [Tooltip("Online: every 10 s of match time, log where every treasure is. Both players log the same moments, " +
                  "so comparing the host's and the guest's console (the browser's F12 console) shows any desync.")]
         public bool logSyncChecks = true;
@@ -44,6 +44,7 @@ namespace LootLasso
         public bool isHost;
         public string lobbyId;
         public int roundTripMs;
+        public string rivalName; // the other player's display name, from the lobby (shown on the HUD)
 
         // True from finding a rival until the match is over (MainMenu uses it to route Play Again).
         public bool IsOnline => phase == Phase.Starting || phase == Phase.Playing || phase == Phase.Over;
@@ -107,6 +108,7 @@ namespace LootLasso
             searchStart = Now;
             lobbyMembers = 0;
             lobbyId = null;
+            rivalName = null;
 
             if (!callbackRegistered)
             {
@@ -191,7 +193,14 @@ namespace LootLasso
 
             if (data.TryGetValue("lobby", out var lobbyObj) && lobbyObj is Dictionary<string, object> lobby)
             {
-                if (lobby.TryGetValue("members", out var members) && members is Array memberArray) lobbyMembers = memberArray.Length;
+                if (lobby.TryGetValue("members", out var members) && members is Array memberArray)
+                {
+                    lobbyMembers = memberArray.Length;
+                    // The rival's name: the member that isn't us.
+                    foreach (var m in memberArray)
+                        if (m is Dictionary<string, object> member && Str(member, "profileId") != BrainCloudManager.Instance.ProfileId)
+                            rivalName = Str(member, "name");
+                }
                 // The lobby's owner hosts the match.
                 if (lobby.TryGetValue("ownerCxId", out var owner)) isHost = owner as string == Bc.Client.RTTConnectionID;
             }

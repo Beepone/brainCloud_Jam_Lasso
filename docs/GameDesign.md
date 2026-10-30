@@ -91,7 +91,7 @@ Treasure is **anthropomorphised**: little characters that wander the field. Each
 **Art in (Oct 28–29):**
 - **Coin:** flies on little wings. Tags `idlefloat`, `flyleftface` / `flyrightface`, `struggleleftface` / `strugglerightface`.
 - **Chest:** a spider-legged chest that **walks in 8 directions** (`treasurechestenemysprite.aseprite`). `TreasureArt` picks the walk from its direction on screen (`walkforward` = down the screen, `backchestwalk` = up, plus left, right and the four diagonals), plays `Idle` when still or in a hoard, and keeps walking when dragged on a rope.
-- **Idol:** a **mockup** (`idol_sprite_mockup.aseprite`) with one untagged animation that loops all the time. The final art can be saved over the same file.
+- **Idol:** `idol_sprite.aseprite` (final art, Oct 29; it took over the mockup's import settings) with one untagged animation that loops all the time.
 - **Shadows** are set per treasure kind on the Arena (Shadow Drop, Shadow Width): flyers have a gap under them (coin 7 px, idol 4 px and wider), and the chest's shadow sits right under its feet.
 
 **Should have:** treasure celebrates or sulks in a hoard.
@@ -173,7 +173,7 @@ Power-ups wander the field like treasure and are caught the same way. Only attem
 - **What gets sent:** throws only (direction, distance, match time). Treasure movement is never sent.
 - **The host decides contested results:** when a lasso lands, the host decides what was caught and sends `caught(treasure ids, thrower)`. The guest shows its own throws immediately and corrects if the host disagrees. This fixes simultaneous grabs.
 - **Messages:** `hello`, `start(seed)`, `throw`, `caught`, `matchEnd(scores)`, plus `ping` for latency.
-- **No opponent?** After about **15 s** of waiting, the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Since Oct 28 it's slower and sloppier, and aims where moving treasure *was*, so it can miss. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
+- **No opponent?** After **60 s** of waiting (15 s until Oct 29), the match starts against the **bot**. `LassoBot` drives the same `LassoSpin` as a player with a fake hand (circles, spins up to the speed for the distance, releases at the tangent angle with some aim error), so it follows exactly the same rules. Since Oct 28 it's slower and sloppier, and aims where moving treasure *was*, so it can miss. Its difficulty (think time, aim and distance error, steal preference) is tunable in the Inspector.
 - **Disconnects:** if the opponent leaves mid-match, the match ends and **the player who stays wins** (forfeit), whatever the score.
 - **Sides:** the host plays the bottom hoard, the guest the top, with its camera turned 180° so everyone sees themselves at the bottom. Hoards are coloured from each player's own view (yours blue, theirs red). The code is `Scripts/Game/NetMatch.cs`.
 
@@ -309,7 +309,7 @@ Source projects are in `SFX_Project/` (not committed yet, see section 14).
 |---|---|
 | Online sync bugs eat the schedule | The bot match is a complete game on its own. If networking isn't solid by **Oct 26**, ship bot-first with online as a bonus |
 | Match events (Oct 28) desync online | ✅ Tested between two devices on Oct 28: in sync |
-| Nobody online during voting | Bot fallback after 15 s (Must) |
+| Nobody online during voting | Bot fallback after 60 s (Must) |
 | Art arrives late | Code uses placeholder shapes until art lands. Integrate art in batches (Oct 24, then whatever's ready by Oct 27) |
 | The throw is too hard for new players | How-to-Play card, generous defaults, tune on Oct 26 |
 | Scope creep | Cut in this order: power-ups → Mimic → player stats → treasure reactions → adaptive music |

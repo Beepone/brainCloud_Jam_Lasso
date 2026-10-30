@@ -131,7 +131,7 @@ namespace LootLasso
         // Visuals made in code (placeholders until the art arrives).
         // ropePieces is an array: a fixed-size row of items. One per straight piece of rope (it bends at each wall bounce).
         SpriteRenderer[] ropePieces;
-        static readonly Color RopeColor = new Color(0.85f, 0.7f, 0.45f);
+        static readonly Color RopeColor = Palette.Tan;
 
         // The rope's shape: the corners it passes through, from the player to the loop.
         readonly List<Vector2> ropePoints = new List<Vector2>();
@@ -224,7 +224,7 @@ namespace LootLasso
             // No loop object dragged in (e.g. the bot's lasso): make a placeholder one.
             if (loop == null)
             {
-                var sr = PlaceholderArt.CreateSprite(name + " Loop", PlaceholderArt.Circle, new Color(1f, 0.6f, 0.75f), YSort.Loop);
+                var sr = PlaceholderArt.CreateSprite(name + " Loop", PlaceholderArt.Circle, Palette.Pink, YSort.Loop);
                 sr.transform.localScale = Vector3.one * 0.3f;
                 loop = sr.transform;
             }
@@ -269,7 +269,8 @@ namespace LootLasso
                 hand = new Hand
                 {
                     held = pointer.press.isPressed,
-                    pressed = pointer.press.wasPressedThisFrame,
+                    // Not on the corner OPTIONS button, or while OPTIONS is up: tapping those mustn't start a spin.
+                    pressed = pointer.press.wasPressedThisFrame && !MainMenu.BlocksPointer(pointer.position.ReadValue()),
                     released = pointer.press.wasReleasedThisFrame,
                     worldPos = Camera.main.ScreenToWorldPoint(pointer.position.ReadValue()),
                 };
@@ -800,7 +801,7 @@ namespace LootLasso
             if (stolenValue > 0)
             {
                 lastThrow += $" | SNATCHED {stolenValue}!";
-                ScoreHud.ShowPopup("SNATCHED!", landing, new Color(1f, 0.45f, 0.85f), big: true); // pink, right where it landed
+                ScoreHud.ShowPopup("SNATCHED!", landing, Palette.Pink, big: true); // pink, right where it landed
                 Stole?.Invoke(this, stolenValue);
             }
         }
@@ -859,7 +860,7 @@ namespace LootLasso
             }
             caughtCount = hooked.Count;
             lastThrow += " | snapped at the centre";
-            ScoreHud.ShowPopup("KNOCKED LOOSE!", snapAt, new Color(1f, 0.45f, 0.85f));
+            ScoreHud.ShowPopup("KNOCKED LOOSE!", snapAt, Palette.Pink);
             Snapped?.Invoke(this);
         }
 
@@ -898,7 +899,7 @@ namespace LootLasso
         {
             var t = hooked[i];
             t.StoreIn(HomeHoard, Arena.Current);
-            ScoreHud.ShowPopup($"+{t.value}", t.transform.position, new Color(1f, 0.85f, 0.2f)); // over the piece as it lands
+            ScoreHud.ShowPopup($"+{t.value}", t.transform.position, Palette.Gold); // over the piece as it lands
             lastThrow += $" | +{t.value}";
             hooked.RemoveAt(i);
             hookedStolen.RemoveAt(i);

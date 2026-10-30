@@ -27,11 +27,11 @@ namespace LootLasso
         public int sparksPerTreasure = 7;
         public float sparkSpeed = 2.5f;   // world units per second
         public float sparkLife = 0.45f;   // seconds
-        static readonly Color[] SparkColors = { new Color(1f, 0.9f, 0.3f), new Color(1f, 0.75f, 0.15f), Color.white };
+        static readonly Color[] SparkColors = { Palette.Gold, Palette.Orange, Palette.Bone };
 
         [Header("Steal flash")]
         public float flashTime = 0.5f;
-        static readonly Color FlashColor = new Color(1f, 0.45f, 0.85f, 0.6f); // pink, like STOLEN!
+        static readonly Color FlashColor = Palette.WithAlpha(Palette.Pink, 0.6f); // pink, like STOLEN!
 
         [Header("Finale (the end of the match music)")]
         [Tooltip("The match music's tempo.")]

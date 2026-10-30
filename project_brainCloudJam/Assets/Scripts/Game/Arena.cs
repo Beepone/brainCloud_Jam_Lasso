@@ -78,7 +78,7 @@ namespace LootLasso
         // A List of TreasureKinds, editable in the Inspector (+ and - buttons add and remove kinds).
         public List<TreasureKind> kinds = new List<TreasureKind>
         {
-            new TreasureKind { name = "Coin",  value = 1,  weight = 1f, speed = 1f,   size = 0.4f, color = new Color(1f, 0.85f, 0.2f),  count = 10 },
+            new TreasureKind { name = "Coin",  value = 1,  weight = 1f, speed = 1f,   size = 0.4f, color = Palette.Gold,  count = 10 },
             new TreasureKind { name = "Chest", value = 5,  weight = 3f, speed = 2f,   size = 0.7f, color = new Color(0.65f, 0.4f, 0.2f), count = 4, shadowDrop = 0f, shadowWidth = 2f },
             new TreasureKind { name = "Idol",  value = 15, weight = 6f, speed = 3.5f, size = 0.6f, color = new Color(0.3f, 1f, 0.6f),   count = 2, shadowDrop = 4f, shadowWidth = 1.6f },
         };
@@ -304,7 +304,7 @@ namespace LootLasso
             // ...and the third (Idol) the idol file: one looping animation, playing all the time.
             if (kinds.Count > 2 && kinds[2].animatedArt == null)
             {
-                kinds[2].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/idol_sprite_mockup.aseprite");
+                kinds[2].animatedArt = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Sprites/idol_sprite.aseprite");
                 if (kinds[2].animatedArt != null) wasMissing = true;
             }
             // The lasso loops: one frame each, so the first sprite in each file.
@@ -383,6 +383,7 @@ namespace LootLasso
             if (GetComponent<GameMusic>() == null) gameObject.AddComponent<GameMusic>();
             if (GetComponent<Juice>() == null) gameObject.AddComponent<Juice>();
             if (GetComponent<DayNight>() == null) gameObject.AddComponent<DayNight>();
+            if (GetComponent<ThrowHint>() == null) gameObject.AddComponent<ThrowHint>();
             if (standInGround && GetComponent<StandInGround>() == null) gameObject.AddComponent<StandInGround>();
             // Every lasso gets its sounds and its hunter art.
             foreach (var lasso in FindObjectsByType<LassoSpin>())
@@ -465,7 +466,7 @@ namespace LootLasso
             {
                 goldenIdolDone = true;
                 Stampede(goldenHourAt, 100, showPopup: false); // the idol comes with a stampede (its popup says enough)
-                if (SpawnIdol(goldenHourAt)) ScoreHud.ShowPopup("GOLDEN IDOL!", new Vector2(0f, MirrorLineY), new Color(1f, 0.85f, 0.2f), big: true);
+                if (SpawnIdol(goldenHourAt)) ScoreHud.ShowPopup("GOLDEN IDOL!", new Vector2(0f, MirrorLineY), Palette.Gold, big: true);
             }
             if (!nightIdolDone && time >= nightfallAt)
             {
@@ -513,7 +514,7 @@ namespace LootLasso
                 t.DashTo(new Vector2(edge + (fromLeft ? run : -run), y), run / (kind.speed * 2f));
                 treasures.Add(t);
             }
-            if (total > 0 && showPopup) ScoreHud.ShowPopup("STAMPEDE!", new Vector2(0f, MirrorLineY), Color.white, big: true);
+            if (total > 0 && showPopup) ScoreHud.ShowPopup("STAMPEDE!", new Vector2(0f, MirrorLineY), Palette.Bone, big: true);
         }
 
         // "ref id" lets this method change the caller's id counter, so every treasure still gets its own number.
@@ -624,8 +625,8 @@ namespace LootLasso
         // Draws the two hoard zones: a very light tint, edged top and bottom by a dashed line in the hunter's
         // colour. (The tint used to be stronger, but it washed out the ground art.)
         SpriteRenderer bottomZone, topZone;
-        static readonly Color BlueZoneColor = new Color(0.3f, 0.6f, 1f, 0.07f);
-        static readonly Color RedZoneColor = new Color(1f, 0.35f, 0.35f, 0.07f);
+        static readonly Color BlueZoneColor = Palette.WithAlpha(Palette.Teal, 0.07f);
+        static readonly Color RedZoneColor = Palette.WithAlpha(Palette.Red, 0.07f);
         const float EdgeAlpha = 0.8f;
         readonly List<SpriteRenderer> bottomEdges = new List<SpriteRenderer>(), topEdges = new List<SpriteRenderer>();
 

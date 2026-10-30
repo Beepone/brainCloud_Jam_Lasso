@@ -1,15 +1,20 @@
 using System.Collections.Generic; // List<T>
 using UnityEngine;
+using UnityEngine.InputSystem; // Keyboard (Esc opens OPTIONS)
 
 namespace LootLasso
 {
     // MainMenu: the screens around the match, and the brainCloud side of things.
     //
     //   NAME ENTRY    first launch only: pick a display name (saved on this device and in brainCloud)
-    //   TITLE         Play (online), Practice (vs the bot), Leaderboard, How to Play, and your name
+    //   TITLE         Online (greyed out while offline), Offline (vs the bot), Rankings, How to Play, Options, your name
     //   SEARCHING     looking for an online rival (see NetMatch); gives up and plays the bot after a while
     //   LEADERBOARD   the top 10 best single-match scores (from brainCloud)
     //   HOW TO PLAY   a short card explaining the throw
+    //   OPTIONS       music and sound volumes (SoundOptions). From the title, or Esc at any time, even
+    //                 mid-match (drawn over it; the match keeps going, since an online rival can't be paused).
+    //                 During a match there's also a small gear button in the bottom-right corner (phones have no Esc).
+    //                 Against the bot, OPTIONS can also ESCAPE the match (greyed out online: leaving would forfeit).
     //
     // On start it logs in to brainCloud (anonymously: the same player on this device every time). After
     // each match it posts your score to the high score leaderboard, which keeps your best match.
@@ -33,6 +38,14 @@ namespace LootLasso
         public string playerName;
         public string onlineStatus = "Connecting...";
         public string scoreStatus;   // what happened to the last match's score (shown on the result panel)
+        public string botName;       // the bot's name this match (shown on the HUD), picked from BotNames
+
+        // The bot plays as a famous movie cowboy, a new one each match. 8 letters at most, to fit the HUD.
+        static readonly string[] BotNames =
+        {
+            "DJANGO", "WAYNE", "EASTWOOD", "BLONDIE", "TUCO", "SHANE",
+            "COGBURN", "SUNDANCE", "HOLLIDAY", "EARP", "JOSEY", "DUKE",
+        };
 
         enum Screen { NameEntry, Title, Searching, Leaderboard, HowToPlay }
         Screen current = Screen.Title;
@@ -52,7 +65,18 @@ namespace LootLasso
         const string NameKey = "LootLasso.PlayerName";
         const int MaxNameLength = 14;
 
-        void Awake() => Current = this;
+        // Is the OPTIONS screen up? (Static so the lasso can check it. Reset on start: domain reload is off.)
+        public static bool OptionsOpen { get; private set; }
+
+        void Awake() { Current = this; OptionsOpen = false; }
+
+        void Update()
+        {
+            // Esc opens or closes OPTIONS (not while typing a name, where it would lose the text box).
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && current != Screen.NameEntry)
+                OptionsOpen = !OptionsOpen;
+        }
 
         void Start()
         {
@@ -123,7 +147,7 @@ namespace LootLasso
 
         // ===== Navigation (also used by the result panel) =====
 
-        // PLAY: look for an online rival (NetMatch). The match starts by itself when one is found.
+        // ONLINE: look for an online rival (NetMatch). The match starts by itself when one is found.
         public void Play()
         {
             practice = false;
@@ -134,7 +158,7 @@ namespace LootLasso
             net.FindMatch();
         }
 
-        // PRACTICE: straight into a match against the bot.
+        // OFFLINE: straight into a match against the bot.
         public void Practice()
         {
             practice = true;
@@ -158,6 +182,7 @@ namespace LootLasso
         void StartBotMatch()
         {
             scoreStatus = "";
+            botName = BotNames[Random.Range(0, BotNames.Length)];
             net.SetUpSolo();
             arena.PlayAgain();
         }
@@ -168,19 +193,22 @@ namespace LootLasso
             if (current != Screen.Searching) return; // already cancelled
             current = Screen.Title;                  // (shown again after the match)
             StartBotMatch();
-            ScoreHud.ShowPopup(why, new Vector2(0f, arena.MirrorLineY), Color.white);
+            ScoreHud.ShowPopup(why, new Vector2(0f, arena.MirrorLineY), Palette.Bone);
         }
 
         // ===== Drawing =====
 
         void OnGUI()
         {
-            screen = current.ToString(); // readout
+            screen = OptionsOpen ? "Options" : current.ToString(); // readout
+            GUI.depth = 0; // (DrawOptions raises it)
+            if (OptionsOpen && arena != null) { DrawOptions(); return; }
+            if (arena != null && arena.isPlaying && UiKit.IconButton(CornerButtonRect(), GearIcon, Palette.Bone)) OptionsOpen = true;
             if (arena == null || arena.isPlaying || arena.isOver) return; // the match and result panel draw themselves
 
             int size = Mathf.RoundToInt(UnityEngine.Screen.height * textSize);
             // Dim the arena behind the menu.
-            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.color = Palette.WithAlpha(Palette.Night, 0.6f);
             GUI.DrawTexture(new Rect(0, 0, UnityEngine.Screen.width, UnityEngine.Screen.height), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
@@ -203,26 +231,30 @@ namespace LootLasso
         {
             // The logo (140 x 64 art pixels), centred at row 52 of the 320-row screen, just below the notch zone.
             if (arena.titleLogo != null) DrawArtSprite(arena.titleLogo, 52f / 320f);
-            else Label("LOOT LASSO", 0.16f, size * 1.9f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
+            else Label("LOOT LASSO", 0.16f, size * 1.9f, Palette.Gold, bold: true, title: true);
 
-            Label($"Hi, {playerName}", 0.30f, size, Color.white);
+            Label($"Hi, {playerName}", 0.30f, size, Palette.Bone);
             if (SmallButton("EDIT NAME", 0.347f, size)) { nameInput = playerName; current = Screen.NameEntry; }
 
-            if (Button("PLAY ONLINE", 0.45f, size)) Play();
-            if (Button("PRACTICE", 0.545f, size)) Practice();
+            // ONLINE needs brainCloud: greyed out while offline. OFFLINE plays the bot.
+            GUI.enabled = loggedIn;
+            if (Button("ONLINE", 0.45f, size)) Play();
+            GUI.enabled = true;
+            if (Button("OFFLINE", 0.545f, size)) Practice();
             if (Button("RANKINGS", 0.64f, size)) OpenLeaderboard(); // (LEADERBOARD is too wide for the button in the pixel font)
             if (Button("HOW TO PLAY", 0.735f, size)) current = Screen.HowToPlay;
+            if (Button("OPTIONS", 0.83f, size)) OptionsOpen = true;
 
-            Label(onlineStatus, 0.9f, size * 0.7f, loggedIn ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.7f, 0.5f));
+            Label(onlineStatus, 0.93f, size * 0.7f, loggedIn ? Palette.Mint : Palette.Orange);
         }
 
         void DrawSearching(int size)
         {
-            Label(net.status, 0.4f, size * 1.2f, Color.white, bold: true, title: true);
+            Label(net.status, 0.4f, size * 1.2f, Palette.Bone, bold: true, title: true);
             // CeilToInt: counts 15, 14, ... 1 (never shows 0 while still looking).
             // Once a rival is found the countdown stops mattering, so say what's happening instead.
             string sub = net.phase == NetMatch.Phase.Starting ? "Getting ready..." : $"Playing the bot in {Mathf.CeilToInt(net.SearchTimeLeft)}...";
-            Label(sub, 0.47f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
+            Label(sub, 0.47f, size * 0.8f, Palette.Ash);
             if (Button("CANCEL", 0.6f, size))
             {
                 net.Cancel();
@@ -232,8 +264,8 @@ namespace LootLasso
 
         void DrawNameEntry(int size)
         {
-            Label("What's your name?", 0.3f, size * 1.3f, Color.white, bold: true, title: true);
-            Label("It's shown in the rankings.", 0.36f, size * 0.8f, new Color(0.8f, 0.8f, 0.8f));
+            Label("What's your name?", 0.3f, size * 1.3f, Palette.Bone, bold: true, title: true);
+            Label("It's shown in the rankings.", 0.36f, size * 0.8f, Palette.Ash);
 
             // A text box: draws it and returns what's typed in it (we feed that back in every frame).
             // On the Field art if there is one, otherwise Unity's plain box.
@@ -262,7 +294,7 @@ namespace LootLasso
 
         void DrawLeaderboard(int size)
         {
-            Label("HIGH SCORES", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
+            Label("HIGH SCORES", 0.1f, size * 1.6f, Palette.Gold, bold: true, title: true);
 
             if (topScores != null && topScores.Count > 0)
             {
@@ -276,17 +308,17 @@ namespace LootLasso
                     // Each line sits on a Row plank. Yours is full colour, the others a little darker, so yours stands out.
                     if (UiKit.Row != null)
                         UiKit.DrawSprite(UiKit.Centered(UiKit.Row, y), UiKit.Row, isMe ? Color.white : new Color(0.7f, 0.7f, 0.7f));
-                    Label($"{e.rank}.  {who}   {e.score}", y, size, isMe && UiKit.Row == null ? new Color(0.55f, 0.75f, 1f) : Color.white, bold: isMe);
+                    Label($"{e.rank}.  {who}   {e.score}", y, size, isMe && UiKit.Row == null ? Palette.Teal : Palette.Bone, bold: isMe);
                 }
             }
-            if (!string.IsNullOrEmpty(leaderboardStatus)) Label(leaderboardStatus, 0.45f, size, Color.white);
+            if (!string.IsNullOrEmpty(leaderboardStatus)) Label(leaderboardStatus, 0.45f, size, Palette.Bone);
 
             if (Button("BACK", 0.82f, size)) current = Screen.Title;
         }
 
         void DrawHowToPlay(int size)
         {
-            Label("HOW TO PLAY", 0.1f, size * 1.6f, new Color(1f, 0.85f, 0.2f), bold: true, title: true);
+            Label("HOW TO PLAY", 0.1f, size * 1.6f, Palette.Gold, bold: true, title: true);
             string[] lines =
             {
                 // Short lines: the small pixel font fits about 28 characters across.
@@ -307,9 +339,106 @@ namespace LootLasso
                 "knock their treasure loose.",
                 "Most treasure at 2:00 wins!",
             };
-            for (int i = 0; i < lines.Length; i++) Label(lines[i], 0.2f + i * 0.038f, size * 0.85f, Color.white);
+            for (int i = 0; i < lines.Length; i++) Label(lines[i], 0.2f + i * 0.038f, size * 0.85f, Palette.Bone);
 
             if (Button("BACK", 0.85f, size)) current = Screen.Title;
+        }
+
+        // OPTIONS: each volume with a - and a + button under it, 10 quieter or louder per tap.
+        // Drawn over everything, including a match or the result panel underneath.
+        void DrawOptions()
+        {
+            GUI.depth = -10; // on top of the HUD and result panel (lower depth = drawn later, gets clicks first)
+            int size = Mathf.RoundToInt(H * textSize);
+            GUI.color = Palette.WithAlpha(Palette.Night, 0.75f);
+            GUI.DrawTexture(new Rect(0, 0, W, H), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            Label("OPTIONS", 0.22f, size * 1.6f, Palette.Gold, bold: true, title: true);
+
+            Label($"MUSIC {SoundOptions.Describe(SoundOptions.Music)}", 0.33f, size, Palette.Bone, title: true);
+            int music = VolumeButtons(SoundOptions.Music, 0.39f, size);
+            if (music != 0) SoundOptions.ChangeMusic(music);
+
+            Label($"SOUND {SoundOptions.Describe(SoundOptions.Sfx)}", 0.49f, size, Palette.Bone, title: true);
+            int sfx = VolumeButtons(SoundOptions.Sfx, 0.55f, size);
+            if (sfx != 0) SoundOptions.ChangeSfx(sfx);
+
+            // During a match, ESCAPE (with BACK moved down under it) leaves for the title, saving no score.
+            // Only against the bot: online it's shown greyed out, since leaving would forfeit the rival's match.
+            bool inMatch = arena.isPlaying;
+            if (inMatch)
+            {
+                GUI.enabled = !net.IsOnline;
+                if (Button("ESCAPE", 0.7f, size))
+                {
+                    OptionsOpen = false;
+                    BackToTitle();
+                }
+                GUI.enabled = true;
+            }
+            if (Button("BACK", inMatch ? 0.795f : 0.7f, size)) OptionsOpen = false;
+
+            // Swallow any other tap, so it doesn't reach the result panel's buttons underneath.
+            var e = Event.current;
+            if (e.type == EventType.MouseDown || e.type == EventType.MouseUp) e.Use();
+        }
+
+        // The corner button: 15 x 14 art pixels, 3 in from the bottom-right corner of the screen.
+        public static Rect CornerButtonRect()
+        {
+            float s = UiKit.Scale;
+            float w = 15f * s, h = 14f * s, margin = 3f * s;
+            return new Rect(W - w - margin, H - h - margin, w, h);
+        }
+
+        // Should the lasso ignore a press here? Yes while OPTIONS is up, or on the corner button during a match.
+        // (screenPos as the Input System gives it: screen pixels counted from the BOTTOM; OnGUI counts from the top.)
+        public static bool BlocksPointer(Vector2 screenPos)
+        {
+            if (OptionsOpen) return true;
+            var arena = Arena.Current;
+            return arena != null && arena.isPlaying && CornerButtonRect().Contains(new Vector2(screenPos.x, H - screenPos.y));
+        }
+
+        // The gear picture on the corner button, made from these rows the first time it's needed
+        // ('#' = a white pixel, tinted when drawn). 7 x 7 art pixels.
+        static readonly string[] GearRows =
+        {
+            "..#.#..",
+            ".#####.",
+            "##...##",
+            ".#...#.",
+            "##...##",
+            ".#####.",
+            "..#.#..",
+        };
+        static Texture2D gearIcon;
+        static Texture2D GearIcon
+        {
+            get
+            {
+                if (gearIcon != null) return gearIcon;
+                int size = GearRows.Length;
+                gearIcon = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++) // textures count rows from the bottom
+                        gearIcon.SetPixel(x, size - 1 - y, GearRows[y][x] == '#' ? Color.white : Color.clear);
+                gearIcon.Apply();
+                return gearIcon;
+            }
+        }
+
+        // A - and a + button side by side at y (greyed out at OFF and at 100). Returns -1, +1, or 0 for no tap.
+        static int VolumeButtons(float level, float y, int size)
+        {
+            int step = 0;
+            GUI.enabled = level > 0f;
+            if (SmallButtonAt("-", -1, y, size)) step = -1;
+            GUI.enabled = level < 1f;
+            if (SmallButtonAt("+", +1, y, size)) step = +1;
+            GUI.enabled = true;
+            return step;
         }
 
         // ----- Small drawing helpers (y and widths are fractions of the screen) -----
@@ -359,6 +488,14 @@ namespace LootLasso
         {
             Rect rect = UiKit.Centered(UiKit.Big, y, 0.6f, size * 2.4f);
             return UiKit.Button(rect, text, UiKit.Big, UiKit.FitFont(text, rect.width, size));
+        }
+
+        // A small button beside the middle: side -1 = left of it, +1 = right, with a few art pixels between.
+        static bool SmallButtonAt(string text, int side, float y, int size)
+        {
+            Rect rect = UiKit.Centered(UiKit.Small, y, 0.35f, size * 1.4f);
+            rect.x += side * (rect.width / 2f + 3f * UiKit.Scale);
+            return UiKit.Button(rect, text, UiKit.Small, UiKit.FitFont(text, rect.width, Mathf.RoundToInt(size * 0.7f)));
         }
 
         // ...and the small 64 x 14 one.

@@ -5,7 +5,7 @@ namespace LootLasso
     // UiKit: draws the OnGUI menus with the UI art (Assets/Sprites/UI_Components.ase).
     //
     // The Aseprite file has one layer per piece, named "<Name> <width>x<height>":
-    //   Normal / Hover / Pressed / Disabled 108x24   the big buttons (PLAY ONLINE, BACK...)
+    //   Normal / Hover / Pressed / Disabled 108x24   the big buttons (ONLINE, BACK...)
     //   Normal / Hover / Pressed / Disabled 64x14    the small ones (change name, the result panel's two)
     //   Panel 96x64                                  the result panel (stretched, see DrawSliced)
     //   Field 126x22                                 the name box
@@ -40,7 +40,7 @@ namespace LootLasso
                 uiSource.playOnAwake = false;
                 uiSource.spatialBlend = 0f;
             }
-            uiSource.PlayOneShot(clip, volume);
+            uiSource.PlayOneShot(clip, volume * SoundOptions.Sfx);
         }
 
         // How many screen pixels one art pixel covers: the screen fits 320 rows tall or 180 columns wide,
@@ -146,6 +146,14 @@ namespace LootLasso
             }
 
             int id = GUIUtility.GetControlID(FocusType.Passive);
+            bool clicked = Press(rect, id);
+            if (Event.current.type == EventType.Repaint) Draw(rect, text, size, fontSize, id, rect.Contains(Event.current.mousePosition));
+            return clicked;
+        }
+
+        // The clicking part of a button (see Button): true on the frame it's clicked, with the click sound.
+        static bool Press(Rect rect, int id)
+        {
             var e = Event.current;
             bool over = rect.Contains(e.mousePosition);
             bool clicked = false;
@@ -169,10 +177,31 @@ namespace LootLasso
                         if (clicked) PlayUiSound(Arena.Current != null ? Arena.Current.uiClick : null, clickVolume);
                     }
                     break;
-                case EventType.Repaint:
-                    Draw(rect, text, size, fontSize, id, over);
-                    break;
             }
+            return clicked;
+        }
+
+        // A small square button with a picture on it instead of text (e.g. the gear in the corner).
+        // The small button art is cut down to size with DrawSliced, and the picture is drawn in "tint" at the
+        // game's pixel scale, in the middle.
+        public static bool IconButton(Rect rect, Texture2D icon, Color tint)
+        {
+            int id = GUIUtility.GetControlID(FocusType.Passive);
+            bool clicked = Press(rect, id);
+            if (Event.current.type != EventType.Repaint) return clicked;
+
+            bool held = GUIUtility.hotControl == id && rect.Contains(Event.current.mousePosition);
+            var art = Get(held ? "Pressed" : "Normal", Small) ?? Get("Normal", Small);
+            if (art != null) DrawSliced(rect, art, 3f);
+            else GUI.Box(rect, GUIContent.none);
+
+            float w = icon.width * Scale, h = icon.height * Scale;
+            float sink = held ? Scale : 0f; // pressed: the picture sinks with the button
+            var at = new Rect(Mathf.Round(rect.center.x - w / 2f), Mathf.Round(rect.center.y - h / 2f + sink), w, h);
+            var oldColor = GUI.color;
+            GUI.color = tint;
+            GUI.DrawTexture(at, icon);
+            GUI.color = oldColor;
             return clicked;
         }
 
@@ -205,7 +234,7 @@ namespace LootLasso
             // buttons' 3-pixel shadow, so it moves down with the face when pressed.
             float shadow = size == Big ? 3f * scale : 0f;
             var face = new Rect(rect.x, drawn.y, rect.width, rect.yMax - shadow - drawn.y);
-            Color textColor = GUI.enabled ? Color.white : new Color(1f, 1f, 1f, 0.5f);
+            Color textColor = GUI.enabled ? Palette.Bone : Palette.WithAlpha(Palette.Bone, 0.5f);
 
             // The pixel font: large on big buttons, small on small ones, if it fits inside the rough edges.
             var font = PixelFont.Pick(text, rect.width - 8f * scale, scale, large: size == Big);
@@ -235,7 +264,7 @@ namespace LootLasso
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = false,
             };
-            style.normal.textColor = style.hover.textColor = style.focused.textColor = style.active.textColor = Color.white;
+            style.normal.textColor = style.hover.textColor = style.focused.textColor = style.active.textColor = Palette.Bone;
             return GUI.TextField(rect, text, maxLength, style);
         }
 

@@ -86,7 +86,7 @@ namespace LootLasso
                 if (!announced)
                 {
                     announced = true;
-                    ScoreHud.ShowPopup("NIGHTFALL!", new Vector2(0f, arena.MirrorLineY), new Color(0.75f, 0.85f, 1f), big: true);
+                    ScoreHud.ShowPopup("NIGHTFALL!", new Vector2(0f, arena.MirrorLineY), Palette.Teal, big: true);
                     if (Juice.Current != null) Juice.Current.Kick(3f);
                 }
             }

@@ -133,7 +133,7 @@ namespace LootLasso
         public void Draw(string text, float x, float y, TextAnchor alignment, float scale, Color color, bool shadow = false)
         {
             if (string.IsNullOrEmpty(text)) return;
-            if (shadow) Draw(text, x + scale, y + scale, alignment, scale, new Color(0f, 0f, 0f, color.a * 0.6f));
+            if (shadow) Draw(text, x + scale, y + scale, alignment, scale, Palette.WithAlpha(Palette.Night, color.a * 0.6f));
 
             float width = Width(text) * scale;
             float left = alignment == TextAnchor.MiddleLeft ? x : alignment == TextAnchor.MiddleRight ? x - width : x - width / 2f;
