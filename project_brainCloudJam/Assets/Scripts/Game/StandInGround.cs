@@ -34,6 +34,17 @@ namespace LootLasso
             {
                 ground = PlaceholderArt.CreateSprite("Ground", art, Color.white, YSort.Ground - 1, transform);
                 ground.transform.position = Vector3.zero;
+                // A mirrored copy above and below, so the picture carries on past its edges. The online guest's
+                // camera is flipped around the line between the hoards, which isn't quite the picture's middle,
+                // so it sees a little past the top edge (without these, a gray band at the bottom of its screen).
+                // Mirrored (flipped top to bottom) so the pixels continue seamlessly across each join.
+                float h = art.rect.height / art.pixelsPerUnit;
+                foreach (float y in new[] { h, -h })
+                {
+                    var copy = PlaceholderArt.CreateSprite("Ground (mirrored)", art, Color.white, YSort.Ground - 1, transform);
+                    copy.transform.position = new Vector3(0f, y, 0f);
+                    copy.flipY = true;
+                }
                 return;
             }
 

@@ -63,11 +63,28 @@ namespace LootLasso
         bool callbackRegistered;
         Vector3 cameraPos;
         Quaternion cameraRot;
+        bool cameraSaved; // cameraPos/cameraRot hold the camera's real starting pose (see SaveCamera)
 
         static float Now => (float)Time.realtimeSinceStartupAsDouble;
         static BrainCloudWrapper Bc => BrainCloudManager.Instance != null ? BrainCloudManager.Instance.Wrapper : null;
 
-        void Awake() => Current = this;
+        void Awake()
+        {
+            Current = this;
+            SaveCamera();
+        }
+
+        // Remembers the camera's starting pose, once, so a match can put it back (the online guest's camera is
+        // moved and turned). Done as early as possible and again whenever it's needed, because moving the camera
+        // to a pose that was never saved puts it at (0, 0, 0): level with the sprites, so it draws nothing but
+        // its gray background (the "gray screen" some players saw).
+        void SaveCamera()
+        {
+            if (cameraSaved || Camera.main == null) return;
+            cameraPos = Camera.main.transform.position;
+            cameraRot = Camera.main.transform.rotation;
+            cameraSaved = true;
+        }
 
         void Start()
         {
@@ -79,7 +96,7 @@ namespace LootLasso
                 else topLasso = lasso;
             }
             if (topLasso != null) bot = topLasso.GetComponent<LassoBot>();
-            if (Camera.main != null) { cameraPos = Camera.main.transform.position; cameraRot = Camera.main.transform.rotation; }
+            SaveCamera();
 
             arena.MatchEnded += OnMatchEnded;
             foreach (var lasso in new[] { bottomLasso, topLasso })
@@ -315,9 +332,13 @@ namespace LootLasso
             arena.decidesEnd = isHost;
 
             // The guest's camera: moved to the mirror point and turned upside down, so its hunter is at the bottom.
+            SaveCamera();
             var cam = Camera.main.transform;
-            cam.position = isHost ? cameraPos : new Vector3(cameraPos.x, 2f * arena.MirrorLineY - cameraPos.y, cameraPos.z);
-            cam.rotation = isHost ? cameraRot : cameraRot * Quaternion.Euler(0f, 0f, 180f);
+            if (cameraSaved)
+            {
+                cam.position = isHost ? cameraPos : new Vector3(cameraPos.x, 2f * arena.MirrorLineY - cameraPos.y, cameraPos.z);
+                cam.rotation = isHost ? cameraRot : cameraRot * Quaternion.Euler(0f, 0f, 180f);
+            }
 
             arena.StartMatch(seed, alreadyElapsed);
         }
@@ -334,7 +355,8 @@ namespace LootLasso
             if (bot != null) bot.enabled = true;
             arena.localSide = LassoSpin.Side.You;
             arena.decidesEnd = true;
-            if (Camera.main != null) { Camera.main.transform.position = cameraPos; Camera.main.transform.rotation = cameraRot; }
+            SaveCamera();
+            if (cameraSaved) { Camera.main.transform.position = cameraPos; Camera.main.transform.rotation = cameraRot; }
         }
 
         // ===== Sending =====
@@ -419,6 +441,17 @@ namespace LootLasso
 
         void Update()
         {
+            // Safety net for the gray screen: the camera must stay at its starting depth (in front of the sprites).
+            // If anything ever moves it level with them, put it back, and say so in the browser console.
+            SaveCamera();
+            var cam = Camera.main;
+            if (cameraSaved && cam != null && !Mathf.Approximately(cam.transform.position.z, cameraPos.z))
+            {
+                Debug.LogWarning($"Camera was at depth {cam.transform.position.z}, not {cameraPos.z}: put back.");
+                var p = cam.transform.position;
+                cam.transform.position = new Vector3(p.x, p.y, cameraPos.z);
+            }
+
             // Give up on finding a human after a while: play the bot instead.
             if ((phase == Phase.Connecting || phase == Phase.Searching) && SearchTimeLeft <= 0f)
                 GiveUp("No rival found: playing the bot");
